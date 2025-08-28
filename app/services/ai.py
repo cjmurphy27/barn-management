@@ -12,15 +12,25 @@ class BarnLadyAI:
     
     def __init__(self):
         self.settings = get_settings()
-        if not self.settings.ANTHROPIC_API_KEY:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+        self.client = None
+        self.api_key_available = bool(self.settings.ANTHROPIC_API_KEY)
         
-        self.client = anthropic.Anthropic(
-            api_key=self.settings.ANTHROPIC_API_KEY
-        )
+        if self.api_key_available:
+            try:
+                self.client = anthropic.Anthropic(
+                    api_key=self.settings.ANTHROPIC_API_KEY
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize Anthropic client: {e}")
+                self.api_key_available = False
+        else:
+            logger.warning("ANTHROPIC_API_KEY not found in environment variables")
     
     def analyze_horse(self, horse_data: Dict[str, Any], question: str = None, image_data: str = None, image_type: str = None) -> str:
         """Analyze a specific horse and provide insights, optionally with image analysis"""
+        
+        if not self.api_key_available or not self.client:
+            return "AI analysis is currently unavailable. Please check that the ANTHROPIC_API_KEY environment variable is properly configured."
         
         # Create a comprehensive horse profile for the AI
         horse_profile = self._format_horse_for_ai(horse_data)
