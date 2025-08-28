@@ -68,6 +68,15 @@ class ReceiptProcessor:
     ) -> Dict[str, Any]:
         """
         Process a receipt image using Claude Vision API
+        
+        Args:
+            image_data: Base64 encoded image data
+            image_type: Image MIME type (e.g., 'image/jpeg')
+            vendor_hint: Optional vendor name hint
+            expected_total: Optional expected total amount for validation
+            
+        Returns:
+            Dictionary containing extracted receipt data
         """
         
         if not self.api_key_available or not self.client:
@@ -79,16 +88,6 @@ class ReceiptProcessor:
                 "total": 0.0,
                 "items": []
             }
-        
-        Args:
-            image_data: Base64 encoded image data
-            image_type: Image MIME type (e.g., 'image/jpeg')
-            vendor_hint: Optional vendor name hint
-            expected_total: Optional expected total amount for validation
-            
-        Returns:
-            Dictionary containing extracted receipt data
-        """
         
         try:
             # Build the prompt for receipt analysis
