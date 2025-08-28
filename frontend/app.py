@@ -138,7 +138,7 @@ def main():
     # Display logo and tagline
     col1, col2 = st.columns([1, 4])
     with col1:
-        st.image("assets/barn_lady_logo.png", width=150)
+        st.image("frontend/assets/barn_lady_logo.png", width=150)
     with col2:
         st.markdown("""
         <div style="display: flex; align-items: center; height: 150px;">
