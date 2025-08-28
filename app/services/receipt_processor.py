@@ -14,12 +14,19 @@ class ReceiptProcessor:
     
     def __init__(self):
         self.settings = get_settings()
-        if not self.settings.ANTHROPIC_API_KEY:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+        self.client = None
+        self.api_key_available = bool(self.settings.ANTHROPIC_API_KEY)
         
-        self.client = anthropic.Anthropic(
-            api_key=self.settings.ANTHROPIC_API_KEY
-        )
+        if self.api_key_available:
+            try:
+                self.client = anthropic.Anthropic(
+                    api_key=self.settings.ANTHROPIC_API_KEY
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize Anthropic client: {e}")
+                self.api_key_available = False
+        else:
+            logger.warning("ANTHROPIC_API_KEY not found in environment variables")
         
         # Common barn supply keywords for category detection
         self.category_keywords = {
@@ -61,6 +68,17 @@ class ReceiptProcessor:
     ) -> Dict[str, Any]:
         """
         Process a receipt image using Claude Vision API
+        """
+        
+        if not self.api_key_available or not self.client:
+            return {
+                "success": False,
+                "error": "AI receipt processing is currently unavailable. Please check that the ANTHROPIC_API_KEY environment variable is properly configured.",
+                "vendor": "",
+                "date": None,
+                "total": 0.0,
+                "items": []
+            }
         
         Args:
             image_data: Base64 encoded image data
