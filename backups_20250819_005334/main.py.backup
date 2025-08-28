@@ -1,0 +1,24 @@
+from fastapi import FastAPI
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Barn Lady API")
+
+HORSES_DATA = [
+    {"name": "Thunder Bay", "breed": "Thoroughbred", "age_display": "8 years, 3 months", "color": "Bay", "gender": "Gelding", "current_health_status": "Good", "current_location": "Meadowbrook Farm", "owner_name": "Sarah Johnson", "is_for_sale": False, "is_retired": False},
+    {"name": "Starlight Princess", "breed": "Quarter Horse", "age_display": "12 years, 7 months", "color": "Palomino", "gender": "Mare", "current_health_status": "Excellent", "current_location": "Sunrise Stables", "owner_name": "Mike Rodriguez", "is_for_sale": False, "is_retired": False},
+    {"name": "Midnight Express", "breed": "Arabian", "age_display": "6 years, 10 months", "color": "Black", "gender": "Stallion", "current_health_status": "Good", "current_location": "Desert Wind Ranch", "owner_name": "Jessica Thompson", "is_for_sale": False, "is_retired": False},
+    {"name": "Gentle Ben", "breed": "Clydesdale", "age_display": "15 years, 2 months", "color": "Chestnut", "gender": "Gelding", "current_health_status": "Fair", "current_location": "Green Valley Farm", "owner_name": "Green Valley Farm", "is_for_sale": False, "is_retired": True},
+    {"name": "Lightning Bolt", "breed": "Paint Horse", "age_display": "9 years, 5 months", "color": "Pinto", "gender": "Mare", "current_health_status": "Good", "current_location": "Lightning Ridge Stables", "owner_name": "Lightning Ridge Stables", "is_for_sale": True, "is_retired": False},
+    {"name": "Farrah", "breed": "Quarter Horse", "age_display": "14 years", "color": "Chestnut", "gender": "Mare", "current_health_status": "Good", "current_location": "Fernbell Farms", "owner_name": "Gennie Murphy", "is_for_sale": False, "is_retired": False}
+]
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "database": "connected", "version": "1.0.0"}
+
+@app.get("/api/v1/horses/")
+async def get_horses():
+    return HORSES_DATA

@@ -1,0 +1,15 @@
+# Streamlit Frontend Dependencies
+streamlit==1.28.1
+requests==2.31.0
+pandas==2.1.3
+plotly==5.17.0
+
+# Date/time handling
+python-dateutil==2.8.2
+
+# For handling API responses
+pydantic==2.5.0
+
+# Optional: For enhanced data display
+streamlit-elements==0.1.0
+streamlit-option-menu==0.3.6

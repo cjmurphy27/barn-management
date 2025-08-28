@@ -1,0 +1,33 @@
+import streamlit as st
+import requests
+
+st.title("Barn Lady - Horse Management")
+
+API_BASE_URL = "http://localhost:8000/api/v1"
+
+if st.button("Load Horses"):
+    try:
+        response = requests.get(f"{API_BASE_URL}/horses/", timeout=10)
+        if response.status_code == 200:
+            horses = response.json()
+            st.success(f"Found {len(horses)} horses!")
+            
+            for horse in horses:
+                st.write(f"**{horse['name']}** - {horse['breed']}")
+                st.write(f"Age: {horse['age_display']}, Color: {horse['color']}")
+                st.write(f"Health: {horse['current_health_status']}")
+                st.write("---")
+        else:
+            st.error("API Error")
+    except Exception as e:
+        st.error(f"Error: {e}")
+
+if st.button("Test API"):
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=5)
+        if response.status_code == 200:
+            st.success("API is working!")
+        else:
+            st.error("API not responding")
+    except Exception as e:
+        st.error(f"Cannot reach API: {e}")
