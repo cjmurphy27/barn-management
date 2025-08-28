@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         """Get the complete database URL"""
+        # Check for Railway's DATABASE_URL first
+        railway_db_url = os.getenv("DATABASE_URL")
+        if railway_db_url:
+            return railway_db_url
+        
+        # Fallback to individual components
         return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     
     model_config = {
