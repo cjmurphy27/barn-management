@@ -48,10 +48,13 @@ class Settings(BaseSettings):
         # Check for Railway's DATABASE_URL first
         railway_db_url = os.getenv("DATABASE_URL")
         if railway_db_url:
+            print(f"Using Railway DATABASE_URL: {railway_db_url[:50]}...")
             return railway_db_url
         
         # Fallback to individual components
-        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        fallback_url = f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        print(f"DATABASE_URL not found, using fallback: {fallback_url}")
+        return fallback_url
     
     model_config = {
         "env_file": ".env",
