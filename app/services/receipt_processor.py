@@ -122,14 +122,19 @@ class ReceiptProcessor:
                 ]
             )
             
+            # Log the raw AI response for debugging
+            ai_response = response.content[0].text
+            logger.info(f"Raw AI response: {ai_response}")
+            
             # Parse the response
-            result = self._parse_receipt_response(response.content[0].text)
+            result = self._parse_receipt_response(ai_response)
             
             # Add processing metadata
             result["ai_processed"] = True
             result["processing_timestamp"] = datetime.now().isoformat()
             
             logger.info(f"Successfully processed receipt for vendor: {result.get('vendor_name', 'Unknown')}")
+            logger.info(f"Line items found: {len(result.get('line_items', []))}")
             
             return result
             
@@ -146,70 +151,88 @@ class ReceiptProcessor:
     def _build_receipt_prompt(self, vendor_hint: Optional[str], expected_total: Optional[float]) -> str:
         """Build the prompt for receipt analysis"""
         
-        base_prompt = """You are an expert at analyzing receipts for barn and horse supply purchases. 
-Please analyze this receipt image and extract the following information in a structured JSON format:
+        base_prompt = """You are an expert at analyzing receipts, invoices, delivery receipts, and packing slips for barn and horse supply purchases. 
 
-REQUIRED INFORMATION:
-1. Vendor/Store Name
+DOCUMENT TYPE IDENTIFICATION:
+First, identify what type of document this is:
+- SALES RECEIPT: Has prices and payment information
+- DELIVERY RECEIPT/PACKING SLIP: May have quantities but no prices/totals
+- INVOICE: Has pricing but may be unpaid
+- PURCHASE ORDER: List of items ordered
+
+Please analyze this document and extract all available information in a structured JSON format:
+
+INFORMATION TO EXTRACT (when available):
+1. Vendor/Store Name (REQUIRED - always try to find this)
 2. Purchase Date (YYYY-MM-DD format)
-3. Receipt/Invoice Number (if visible)
-4. Total Amount
+3. Receipt/Invoice/Delivery Number (if visible)
+4. Total Amount (if shown - may be null for delivery receipts)
 5. Subtotal (if shown)
 6. Tax Amount (if shown)
 7. All line items with:
-   - Item description/name
+   - Item description/name (REQUIRED for each item)
    - Quantity (if shown, default to 1)
-   - Unit price (if shown)
-   - Total price for the item
+   - Unit price (if shown - may be null for delivery receipts)
+   - Total price for the item (if shown - may be null)
    - Any product codes/SKUs
+   - Brand names (if visible)
+   - Package size or weight (if shown, e.g., "50lb bag", "12oz bottle")
 
-ADDITIONAL ANALYSIS:
+CATEGORIZATION:
 For each line item, categorize it into one of these barn supply categories:
-- feed_nutrition: Feed, hay, grain, supplements, salt, vitamins
-- bedding: Shavings, straw, bedding materials
-- health_medical: Medications, vaccines, medical supplies, dewormers
-- tack_equipment: Halters, ropes, blankets, buckets, gates
-- facility_maintenance: Fence materials, tools, hardware, paint
-- grooming: Brushes, shampoos, fly spray, hoof care
-- other: Items that don't fit the above categories
-
-CONFIDENCE SCORING:
-Provide a confidence score (0.0-1.0) for:
-- Overall extraction accuracy
-- Each line item match
-- Category assignments
+- feed_nutrition: Feed, hay, grain, pellets, supplements, salt, vitamins, molasses, bran, alfalfa, timothy, sweet feed, oats, corn, barley
+- bedding: Shavings, straw, sawdust, bedding pellets, wood shavings, pine, cedar, hemp bedding
+- health_medical: Medications, vaccines, medical supplies, dewormers, antibiotics, syringes, bandages, ointments, pastes, ivermectin, bute, thermometers
+- tack_equipment: Halters, lead ropes, bridles, saddles, blankets, boots, brushes, curry combs, hoof picks, buckets, waterers, feeders
+- facility_maintenance: Fence materials, posts, wire, gates, hardware, bolts, screws, paint, lumber, tools
+- grooming: Brushes, shampoos, conditioners, hoof oil, fly spray, mane and tail products, detanglers
+- other: Items that don't clearly fit the above categories
 
 OUTPUT FORMAT:
 Return a JSON object with this structure:
 {
+  "document_type": "receipt|delivery_receipt|invoice|packing_slip|other",
   "vendor_name": "Store Name",
   "purchase_date": "YYYY-MM-DD",
   "receipt_number": "12345",
   "subtotal": 45.67,
-  "tax_amount": 3.65,
+  "tax_amount": 3.65, 
   "total_amount": 49.32,
   "line_items": [
     {
-      "description": "Item name",
-      "quantity": 1,
+      "description": "Premium Timothy Hay - 50lb Bale",
+      "quantity": 2,
       "unit_price": 12.50,
-      "total_price": 12.50,
-      "product_code": "ABC123",
+      "total_price": 25.00,
+      "product_code": "HAY-TIM-50",
+      "brand": "Premium Horse Feed Co",
+      "package_size": "50lb bale",
       "category": "feed_nutrition",
       "confidence": 0.95
     }
   ],
   "confidence_score": 0.92,
-  "notes": "Any issues or observations",
+  "notes": "Document type: Delivery receipt. No pricing information available.",
   "manual_review_required": false
 }
 
-IMPORTANT RULES:
-- If text is unclear, use your best judgment but lower the confidence score
-- Always try to extract at least vendor name and total amount
-- If amounts don't add up correctly, note this in manual_review_required
-- Be conservative with confidence scores - accuracy is more important than confidence
-- For barn supplies, be specific about the category - horses need very specific items
+CRITICAL RULES FOR ALL DOCUMENT TYPES:
+1. ALWAYS extract vendor name and line items - this is the minimum required information
+2. For delivery receipts/packing slips WITHOUT pricing: Set prices to null, NOT zero
+3. If quantities are missing, default to 1 per item
+4. Focus on accurate item descriptions - be as specific as possible
+5. Look for brand names, sizes, and product codes - these are valuable for inventory matching
+6. If text is unclear, use your best judgment but lower the confidence score
+7. If this appears to be a delivery receipt without prices, note this in "notes" field
+8. Be especially careful with quantities - look for numbers near item descriptions
+9. For feed/hay items, pay attention to weight (50lb, 40lb) and bale counts
+10. Don't assume pricing exists - delivery receipts and packing slips often have no prices
+
+EXAMPLE SCENARIOS:
+- If you see "2x Timothy Hay Bales" → quantity: 2, description: "Timothy Hay Bales"  
+- If you see "Dewormer Paste - Qty: 1" → quantity: 1, description: "Dewormer Paste"
+- If document shows no $ amounts → set unit_price and total_price to null
+- If document shows delivery/packing slip → document_type: "delivery_receipt"
 """
 
         # Add context if provided
@@ -276,11 +299,11 @@ IMPORTANT RULES:
                 validated["line_items"].append(validated_item)
         
         # Calculate totals if missing
-        if not validated["subtotal"] and validated["line_items"]:
-            validated["subtotal"] = sum(item["total_price"] for item in validated["line_items"])
+        if validated["subtotal"] is None and validated["line_items"]:
+            validated["subtotal"] = sum(item.get("total_price", 0) for item in validated["line_items"] if item.get("total_price") is not None)
         
         # Validation checks
-        if validated["total_amount"] <= 0:
+        if validated["total_amount"] is None or validated["total_amount"] <= 0:
             validated["manual_review_required"] = True
             validated["notes"] += " Missing or invalid total amount."
         
@@ -289,7 +312,8 @@ IMPORTANT RULES:
             validated["notes"] += " No line items detected."
         
         # Check if math adds up
-        if (validated["subtotal"] and validated["tax_amount"] and 
+        if (validated["subtotal"] is not None and validated["tax_amount"] is not None and 
+            validated["total_amount"] is not None and
             abs(validated["subtotal"] + validated["tax_amount"] - validated["total_amount"]) > 0.02):
             validated["manual_review_required"] = True
             validated["notes"] += " Amounts don't add up correctly."
@@ -303,14 +327,28 @@ IMPORTANT RULES:
         if not description:
             return None
         
+        # Parse quantity safely
+        quantity_raw = item.get("quantity", 1)
+        try:
+            quantity = max(float(quantity_raw), 1) if quantity_raw is not None else 1
+        except (ValueError, TypeError):
+            quantity = 1
+            
+        # Parse confidence safely  
+        confidence_raw = item.get("confidence", 0.5)
+        try:
+            confidence = min(max(float(confidence_raw), 0), 1) if confidence_raw is not None else 0.5
+        except (ValueError, TypeError):
+            confidence = 0.5
+        
         return {
             "description": description,
-            "quantity": max(float(item.get("quantity", 1)), 1),
+            "quantity": quantity,
             "unit_price": self._parse_float(item.get("unit_price")),
             "total_price": self._parse_float(item.get("total_price", 0)),
             "product_code": item.get("product_code"),
             "category": self._validate_category(item.get("category", "other")),
-            "confidence": min(max(float(item.get("confidence", 0.5)), 0), 1),
+            "confidence": confidence,
             "brand": item.get("brand"),
             "unit_type": item.get("unit_type")
         }

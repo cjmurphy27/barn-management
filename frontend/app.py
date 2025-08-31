@@ -1720,12 +1720,112 @@ def show_supply_dashboard():
             
             with col2:
                 st.write(f"📅 {transaction['purchase_date']}")
-                st.write(f"💰 ${transaction['total_amount']:.2f}")
+                total_amount = transaction['total_amount']
+                if total_amount is not None:
+                    st.write(f"💰 ${total_amount:.2f}")
+                else:
+                    st.write("💰 No total available")
             
             with col3:
                 if st.button("View", key=f"view_transaction_{transaction['id']}"):
                     st.session_state[f"viewing_transaction_{transaction['id']}"] = True
                     st.rerun()
+        
+        # Check if any transaction is being viewed
+        for transaction in recent_transactions:
+            if st.session_state.get(f"viewing_transaction_{transaction['id']}"):
+                show_transaction_details(transaction['id'])
+                break
+
+def show_transaction_details(transaction_id: int):
+    """Display detailed transaction view with editing capabilities"""
+    
+    # Get transaction details
+    transaction_data = api_request("GET", f"/api/v1/supplies/transactions/{transaction_id}")
+    
+    if not transaction_data:
+        st.error("Failed to load transaction details")
+        return
+    
+    st.subheader(f"📋 Transaction Details - {transaction_data.get('vendor_name', 'Unknown Vendor')}")
+    
+    # Close button
+    if st.button("✖️ Close", key=f"close_transaction_{transaction_id}"):
+        if f"viewing_transaction_{transaction_id}" in st.session_state:
+            del st.session_state[f"viewing_transaction_{transaction_id}"]
+        st.rerun()
+    
+    # Transaction info
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.write("**Vendor:**", transaction_data.get('vendor_name', 'Unknown'))
+        st.write("**Date:**", transaction_data.get('purchase_date', 'Unknown'))
+    
+    with col2:
+        total_amount = transaction_data.get('total_amount')
+        if total_amount:
+            st.write("**Total:**", f"${total_amount:.2f}")
+        else:
+            st.write("**Total:**", "No total available")
+        st.write("**Status:**", transaction_data.get('status', 'Unknown').title())
+    
+    with col3:
+        st.write("**Confidence:**", f"{transaction_data.get('ai_confidence_score', 0):.1%}")
+        if transaction_data.get('manual_review_required'):
+            st.warning("⚠️ Manual review required")
+    
+    # AI processing notes
+    if transaction_data.get('ai_processing_notes'):
+        st.info(f"**AI Notes:** {transaction_data['ai_processing_notes']}")
+    
+    st.write("---")
+    
+    # Line items
+    items = transaction_data.get('items', [])
+    if items:
+        st.subheader("📦 Transaction Items")
+        
+        for i, item in enumerate(items):
+            with st.expander(f"{item.get('item_description', 'Unknown Item')} - Qty: {item.get('quantity', 0)}"):
+                # Editable fields
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.write("**Description:**", item.get('item_description', 'Unknown'))
+                    st.write("**Quantity:**", item.get('quantity', 0))
+                    if item.get('brand'):
+                        st.write("**Brand:**", item['brand'])
+                
+                with col2:
+                    unit_cost = st.number_input(
+                        "Unit Cost ($)", 
+                        value=float(item.get('unit_cost') or 0),
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"unit_cost_{transaction_id}_{i}"
+                    )
+                    total_cost = st.number_input(
+                        "Total Cost ($)", 
+                        value=float(item.get('total_cost') or 0),
+                        min_value=0.0,
+                        step=0.01,
+                        key=f"total_cost_{transaction_id}_{i}"
+                    )
+                
+                with col3:
+                    st.write("**Confidence:**", f"{item.get('ai_confidence', 0):.1%}")
+                    if item.get('product_code'):
+                        st.write("**Product Code:**", item['product_code'])
+                    
+                    # Update button
+                    if st.button(f"💾 Update Item", key=f"update_item_{transaction_id}_{i}"):
+                        # Here you could add API call to update the transaction item
+                        st.success("Update functionality coming soon!")
+    else:
+        st.warning("No items found for this transaction")
+    
+    st.write("---")
 
 def show_inventory_management():
     """Display and manage inventory items"""
@@ -1752,7 +1852,8 @@ def show_inventory_management():
         stock_filter = st.selectbox("Stock Level", ["All Items", "Low Stock Only", "In Stock Only"])
     
     with col4:
-        if st.button("➕ Add New Supply"):
+        add_supply_clicked = st.button("➕ Add New Supply", key="add_supply_btn")
+        if add_supply_clicked:
             st.session_state['adding_supply'] = True
             st.rerun()
     
@@ -2096,43 +2197,164 @@ def show_receipt_scanner():
             
             if st.button("🤖 Process Receipt with AI", type="primary"):
                 with st.spinner("🔍 Analyzing receipt with AI..."):
-                    # This would call the receipt processing API
-                    # For now, we'll show a placeholder
-                    st.success("🎉 Receipt processed successfully!")
+                    try:
+                        # Prepare multipart form data
+                        import requests
+                        
+                        # Prepare the file data
+                        files = {"receipt_image": (uploaded_receipt.name, uploaded_receipt.getvalue(), uploaded_receipt.type)}
+                        
+                        # Prepare form data
+                        data = {}
+                        if vendor_hint:
+                            data["vendor_hint"] = vendor_hint
+                        if expected_total > 0:
+                            data["expected_total"] = expected_total
+                        
+                        # Make the request directly with requests
+                        response = requests.post(
+                            f"{API_BASE_URL}/api/v1/supplies/transactions/process-receipt",
+                            files=files,
+                            data=data
+                        )
+                        
+                        if response.status_code == 201:
+                            result = response.json()
+                        else:
+                            result = {"success": False, "error": f"Server error: {response.status_code}"}
+                        
+                        if result and result.get("success"):
+                            st.success("🎉 Receipt processed successfully!")
+                            
+                            # Store results in session state for adding to inventory
+                            st.session_state['processed_receipt'] = result
+                            st.session_state['show_extracted_items'] = True
                     
-                    # Mock response for demonstration
-                    st.subheader("📋 Extracted Items")
-                    
-                    mock_items = [
-                        {"description": "Premium Timothy Hay - 50lb", "quantity": 2, "total": 25.00},
-                        {"description": "Wood Shavings - Large Bag", "quantity": 3, "total": 26.97},
-                        {"description": "Dewormer Paste", "quantity": 1, "total": 15.99}
-                    ]
-                    
-                    for i, item in enumerate(mock_items):
+                    except Exception as e:
+                        st.error(f"❌ Error processing receipt: {str(e)}")
+                        st.info("Make sure the image is clear and contains a valid receipt")
+            
+            # Display extracted items if they exist in session state
+            if st.session_state.get('show_extracted_items') and st.session_state.get('processed_receipt'):
+                result = st.session_state['processed_receipt']
+                
+                # Display extracted information
+                st.subheader("📋 Extracted Items")
+                
+                items = result.get("line_items", [])
+                if items:
+                    for i, item in enumerate(items):
                         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
                         
                         with col1:
-                            st.write(f"**{item['description']}**")
+                            st.write(f"**{item.get('description', 'Unknown Item')}**")
+                            if item.get('category'):
+                                st.write(f"*Category: {item['category']}*")
                         
                         with col2:
-                            st.write(f"Qty: {item['quantity']}")
+                            st.write(f"Qty: {item.get('quantity', 1)}")
                         
                         with col3:
-                            st.write(f"${item['total']:.2f}")
+                            cost = item.get('unit_price') or item.get('total_price') or 0
+                            if cost:
+                                st.write(f"${cost:.2f}")
+                            else:
+                                st.write("No price")
                         
                         with col4:
-                            if st.button("✅", key=f"approve_item_{i}", help="Add to inventory"):
-                                st.success(f"Added {item['description']} to inventory!")
+                            if st.button("➕", key=f"add_item_{i}", help="Add to inventory"):
+                                # Map package_size to proper unit_type
+                                package_size = item.get('package_size', 'each').lower()
+                                unit_type_map = {
+                                    'bag': 'bags',
+                                    'bale': 'bales', 
+                                    'pound': 'pounds',
+                                    'lb': 'pounds',
+                                    'gallon': 'gallons',
+                                    'bottle': 'bottles',
+                                    'box': 'boxes',
+                                    'each': 'each',
+                                    'yard': 'yards',
+                                    'roll': 'rolls'
+                                }
+                                unit_type = unit_type_map.get(package_size, 'each')
+                                
+                                # Add individual item to inventory
+                                supply_data = {
+                                    "name": item.get('description', 'Receipt Item'),
+                                    "category": item.get('category', 'other'),
+                                    "unit_type": unit_type,
+                                    "current_stock": item.get('quantity', 1),
+                                    "last_cost_per_unit": item.get('unit_price') or item.get('total_price')
+                                }
+                                
+                                add_result = api_request("POST", "/api/v1/supplies/", supply_data)
+                                if add_result:
+                                    st.success(f"✅ Added {item.get('description')} to inventory!")
+                                else:
+                                    st.error(f"Failed to add {item.get('description')}")
                     
+                    # Summary and Add All button (outside the item loop)
                     st.write("---")
-                    st.write("**Total:** $67.96")
-                    st.write("**Vendor:** Tractor Supply Co")
-                    st.write("**Date:** 2025-08-27")
+                    total_amount = result.get('total_amount')
+                    if total_amount:
+                        st.write(f"**Total:** ${total_amount:.2f}")
+                    else:
+                        st.write("**Total:** No total available (delivery receipt)")
+                    if result.get('vendor_name'):
+                        st.write(f"**Vendor:** {result['vendor_name']}")
+                    if result.get('purchase_date'):
+                        st.write(f"**Date:** {result['purchase_date']}")
+                    if result.get('notes'):
+                        st.info(f"**Notes:** {result['notes']}")
                     
+                    # Add all items button
                     if st.button("📦 Add All Items to Inventory"):
-                        st.balloons()
-                        st.success("All items added to inventory and transaction recorded!")
+                        success_count = 0
+                        for item in items:
+                            # Map package_size to proper unit_type
+                            package_size = item.get('package_size', 'each').lower()
+                            unit_type_map = {
+                                'bag': 'bags',
+                                'bags': 'bags',
+                                'bale': 'bales',
+                                'bales': 'bales', 
+                                'pound': 'pounds',
+                                'pounds': 'pounds',
+                                'lb': 'pounds',
+                                'gallon': 'gallons',
+                                'gallons': 'gallons',
+                                'bottle': 'bottles',
+                                'bottles': 'bottles',
+                                'box': 'boxes',
+                                'boxes': 'boxes',
+                                'each': 'each',
+                                'yard': 'yards',
+                                'yards': 'yards',
+                                'roll': 'rolls',
+                                'rolls': 'rolls'
+                            }
+                            unit_type = unit_type_map.get(package_size, 'each')
+                            
+                            supply_data = {
+                                "name": item.get('description', 'Receipt Item'),
+                                "category": item.get('category', 'other'),
+                                "unit_type": unit_type, 
+                                "current_stock": item.get('quantity', 1),
+                                "last_cost_per_unit": item.get('unit_price') or item.get('total_price')
+                            }
+                            
+                            add_result = api_request("POST", "/api/v1/supplies/", supply_data)
+                            if add_result:
+                                success_count += 1
+                        
+                        if success_count > 0:
+                            st.balloons()
+                            st.success(f"✅ Added {success_count} items to inventory!")
+                        else:
+                            st.error("Failed to add items to inventory")
+                else:
+                    st.warning("No items found in receipt")
 
 def show_supply_analytics():
     """Display supply analytics and trends"""

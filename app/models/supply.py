@@ -264,7 +264,7 @@ class Transaction(Base):
     tax_amount = Column(Float, nullable=True)
     shipping_cost = Column(Float, nullable=True)
     discount_amount = Column(Float, nullable=True)
-    total_amount = Column(Float, nullable=False)
+    total_amount = Column(Float, nullable=True)
     
     # Payment Information
     payment_method = Column(String(50), nullable=True)  # Cash, Credit Card, Check, etc.
@@ -299,7 +299,8 @@ class Transaction(Base):
     items = relationship("TransactionItem", back_populates="transaction", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Transaction(vendor='{self.vendor_name}', total=${self.total_amount})>"
+        total_str = f"${self.total_amount:.2f}" if self.total_amount is not None else "No total"
+        return f"<Transaction(vendor='{self.vendor_name}', total={total_str})>"
     
     @property
     def item_count(self) -> int:
@@ -353,7 +354,7 @@ class TransactionItem(Base):
     item_description = Column(String(500), nullable=False)
     quantity = Column(Float, nullable=False)
     unit_cost = Column(Float, nullable=True)
-    total_cost = Column(Float, nullable=False)
+    total_cost = Column(Float, nullable=True)
     
     # Additional Details
     unit_type = Column(String(50), nullable=True)  # From receipt
