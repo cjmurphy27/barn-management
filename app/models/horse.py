@@ -69,6 +69,16 @@ class Horse(Base):
     emergency_contact_phone = Column(String(20), nullable=True)
     veterinarian_name = Column(String(100), nullable=True)
     veterinarian_contact = Column(String(200), nullable=True)
+    farrier_name = Column(String(100), nullable=True)
+    
+    # Care Schedules
+    feeding_schedule = Column(Text, nullable=True)
+    exercise_schedule = Column(Text, nullable=True)
+    
+    # Health History Dates
+    last_vet_visit = Column(Date, nullable=True)
+    last_dental = Column(Date, nullable=True)
+    last_farrier = Column(Date, nullable=True)
     
     # Additional Notes
     notes = Column(Text, nullable=True)
@@ -94,6 +104,9 @@ class Horse(Base):
     # events = relationship("Event", back_populates="horse", cascade="all, delete-orphan")
     # health_records = relationship("HealthRecord", back_populates="horse", cascade="all, delete-orphan")
     # feeding_records = relationship("FeedingRecord", back_populates="horse", cascade="all, delete-orphan")
+    
+    # Document relationships
+    document_associations = relationship("HorseDocumentAssociation", back_populates="horse", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Horse(name='{self.name}', breed='{self.breed}')>"
@@ -147,6 +160,9 @@ class Horse(Base):
             "training_level": self.training_level,
             "disciplines": self.disciplines,
             "trainer_name": self.trainer_name,
+            "trainer_contact": self.trainer_contact,
+            "feeding_schedule": self.feeding_schedule,
+            "exercise_schedule": self.exercise_schedule,
             "current_health_status": self.current_health_status,
             "special_needs": self.special_needs,
             "allergies": self.allergies,
@@ -155,6 +171,10 @@ class Horse(Base):
             "emergency_contact_phone": self.emergency_contact_phone,
             "veterinarian_name": self.veterinarian_name,
             "veterinarian_contact": self.veterinarian_contact,
+            "farrier_name": self.farrier_name,
+            "last_vet_visit": self.last_vet_visit.isoformat() if self.last_vet_visit else None,
+            "last_dental": self.last_dental.isoformat() if self.last_dental else None,
+            "last_farrier": self.last_farrier.isoformat() if self.last_farrier else None,
             "notes": self.notes,
             "profile_photo_path": self.profile_photo_path,
             "is_active": self.is_active,

@@ -631,7 +631,7 @@ def show_horse_profile():
     st.divider()
     
     # Horse Information Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Basic Info", "📏 Physical", "🏠 Management", "🏥 Health", "📝 Notes"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 Basic Info", "📏 Physical", "🏠 Management", "🏥 Health", "📝 Notes", "📚 Documents"])
     
     with tab1:
         col1, col2 = st.columns(2)
@@ -880,6 +880,161 @@ def show_horse_profile():
             st.write(f"**Last updated:** {format_date(updated_at)}")
         else:
             st.write("**Last updated:** Not recorded")
+    
+    with tab6:
+        show_horse_documents(horse['id'], horse['name'])
+
+def show_horse_documents(horse_id: int, horse_name: str):
+    """Display and manage documents for a horse"""
+    
+    st.subheader(f"📚 Documents for {horse_name}")
+    
+    # Document upload section
+    st.write("### Upload New Document")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        uploaded_file = st.file_uploader(
+            "Choose a document",
+            type=['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png', 'tiff'],
+            help="Supported formats: PDF, DOCX, DOC, TXT, JPG, PNG, TIFF (Max 10MB)"
+        )
+    
+    with col2:
+        document_categories = {
+            "medical_record": "🏥 Medical Record",
+            "veterinary_report": "👩‍⚕️ Veterinary Report", 
+            "vaccination_record": "💉 Vaccination Record",
+            "training_notes": "🏃 Training Notes",
+            "feed_evaluation": "🌾 Feed Evaluation",
+            "behavioral_notes": "🧠 Behavioral Notes",
+            "breeding_record": "🐎 Breeding Record",
+            "ownership_papers": "📋 Ownership Papers",
+            "insurance_document": "🛡️ Insurance Document",
+            "competition_record": "🏆 Competition Record",
+            "general": "📄 General"
+        }
+        
+        selected_category = st.selectbox(
+            "Document Category",
+            options=list(document_categories.keys()),
+            format_func=lambda x: document_categories[x]
+        )
+    
+    # Additional metadata
+    col3, col4 = st.columns(2)
+    with col3:
+        title = st.text_input("Document Title (optional)", placeholder="e.g., Annual Vaccination Record 2025")
+    with col4:
+        description = st.text_area("Description (optional)", placeholder="Brief description of the document content...")
+    
+    # Upload button
+    if uploaded_file is not None:
+        if st.button("📤 Upload Document", type="primary"):
+            with st.spinner("Uploading document..."):
+                try:
+                    # Prepare form data
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+                    data = {
+                        "document_category": selected_category,
+                    }
+                    if title:
+                        data["title"] = title
+                    if description:
+                        data["description"] = description
+                    
+                    # Upload via API
+                    response = requests.post(
+                        f"{API_BASE_URL}/api/v1/horses/{horse_id}/documents",
+                        files=files,
+                        data=data
+                    )
+                    
+                    if response.status_code == 201:
+                        st.success(f"✅ Document '{uploaded_file.name}' uploaded successfully!")
+                        st.rerun()
+                    else:
+                        error_detail = response.json().get("detail", "Upload failed") if response.content else "Upload failed"
+                        st.error(f"❌ Upload failed: {error_detail}")
+                        
+                except Exception as e:
+                    st.error(f"❌ Upload error: {str(e)}")
+    
+    st.divider()
+    
+    # Document list section
+    st.write("### Existing Documents")
+    
+    # Category filter
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        filter_categories = ["All Categories"] + [document_categories[k] for k in document_categories.keys()]
+        selected_filter = st.selectbox(
+            "Filter by Category",
+            options=filter_categories,
+            key=f"doc_filter_{horse_id}"
+        )
+    
+    # Get documents
+    try:
+        params = {}
+        if selected_filter != "All Categories":
+            # Find the category key for the selected display value
+            category_key = next(k for k, v in document_categories.items() if v == selected_filter)
+            params["category"] = category_key
+        
+        response = api_request("GET", f"/api/v1/horses/{horse_id}/documents", params)
+        
+        if response and isinstance(response, list):
+            if len(response) > 0:
+                # Display documents
+                for doc in response:
+                    with st.expander(f"{document_categories.get(doc['document_category'], doc['document_category'])} - {doc.get('title', doc['original_filename'])}"):
+                        col1, col2, col3 = st.columns([2, 1, 1])
+                        
+                        with col1:
+                            st.write(f"**Filename:** {doc['original_filename']}")
+                            st.write(f"**Upload Date:** {format_date(doc['upload_date'])}")
+                            if doc.get('description'):
+                                st.write(f"**Description:** {doc['description']}")
+                            if doc.get('ai_summary'):
+                                st.info(f"**AI Summary:** {doc['ai_summary']}")
+                        
+                        with col2:
+                            file_size_mb = doc['file_size_bytes'] / (1024 * 1024)
+                            st.write(f"**Size:** {file_size_mb:.1f} MB")
+                            st.write(f"**Type:** {doc['file_type']}")
+                            st.write(f"**Status:** {doc['processing_status'].title()}")
+                        
+                        with col3:
+                            if st.button("📥 Download", key=f"download_{doc['id']}"):
+                                # Download file
+                                try:
+                                    download_url = f"{API_BASE_URL}/api/v1/horses/{horse_id}/documents/{doc['id']}/download"
+                                    st.write(f"[Download {doc['original_filename']}]({download_url})")
+                                except Exception as e:
+                                    st.error(f"Download failed: {str(e)}")
+                            
+                            if st.button("🗑️ Delete", key=f"delete_{doc['id']}", help="Delete document"):
+                                if st.session_state.get(f"confirm_delete_{doc['id']}", False):
+                                    # Perform delete
+                                    try:
+                                        delete_response = api_request("DELETE", f"/api/v1/horses/{horse_id}/documents/{doc['id']}")
+                                        st.success("Document deleted!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Delete failed: {str(e)}")
+                                else:
+                                    st.session_state[f"confirm_delete_{doc['id']}"] = True
+                                    st.warning("Click again to confirm deletion")
+            else:
+                st.info("📄 No documents uploaded yet. Use the form above to upload the first document for this horse.")
+        else:
+            st.error("Failed to load documents")
+            
+    except Exception as e:
+        st.error(f"Error loading documents: {str(e)}")
 
 def show_edit_horse_form():
     """Form to edit an existing horse"""
@@ -951,6 +1106,28 @@ def show_edit_horse_form():
                 boarding_index = boarding_options.index(horse.get('boarding_type'))
             boarding_type = st.selectbox("Boarding Type", boarding_options, index=boarding_index)
         
+        # Training & Disciplines  
+        st.subheader("🏇 Training & Disciplines")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            training_level = st.text_input("Training Level", value=horse.get('training_level', '') or '')
+            disciplines = st.text_input("Disciplines", value=horse.get('disciplines', '') or '')
+            
+        with col2:
+            trainer_name = st.text_input("Trainer Name", value=horse.get('trainer_name', '') or '')
+            trainer_contact = st.text_input("Trainer Contact", value=horse.get('trainer_contact', '') or '')
+        
+        # Care Schedule
+        st.subheader("📅 Care Schedule")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            feeding_schedule = st.text_area("Feeding Schedule", value=horse.get('feeding_schedule', '') or '', height=80)
+            
+        with col2:
+            exercise_schedule = st.text_area("Exercise Schedule", value=horse.get('exercise_schedule', '') or '', height=80)
+        
         # Health Information
         st.subheader("🏥 Health Information")
         col1, col2 = st.columns(2)
@@ -967,6 +1144,31 @@ def show_edit_horse_form():
         with col2:
             allergies = st.text_area("Known Allergies", value=horse.get('allergies', '') or '', height=80)
             medications = st.text_area("Current Medications", value=horse.get('medications', '') or '', height=80)
+        
+        # Emergency & Veterinary Contacts
+        st.subheader("🚨 Emergency & Veterinary Contacts")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            emergency_contact_name = st.text_input("Emergency Contact Name", value=horse.get('emergency_contact_name', '') or '')
+            emergency_contact_phone = st.text_input("Emergency Contact Phone", value=horse.get('emergency_contact_phone', '') or '')
+            
+        with col2:
+            veterinarian_contact = st.text_input("Veterinarian Contact", value=horse.get('veterinarian_contact', '') or '')
+            farrier_name = st.text_input("Farrier Name", value=horse.get('farrier_name', '') or '')
+        
+        # Health History
+        st.subheader("📋 Health History")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            last_vet_visit = st.date_input("Last Vet Visit", value=None if not horse.get('last_vet_visit') else datetime.fromisoformat(horse.get('last_vet_visit')).date())
+            
+        with col2:
+            last_dental = st.date_input("Last Dental", value=None if not horse.get('last_dental') else datetime.fromisoformat(horse.get('last_dental')).date())
+            
+        with col3:
+            last_farrier = st.date_input("Last Farrier", value=None if not horse.get('last_farrier') else datetime.fromisoformat(horse.get('last_farrier')).date())
         
         # Profile Photo
         st.subheader("📸 Profile Photo")
@@ -1040,8 +1242,21 @@ def show_edit_horse_form():
                 "current_location": current_location if current_location else None,
                 "stall_number": stall_number if stall_number else None,
                 "boarding_type": boarding_type if boarding_type else None,
+                "training_level": training_level if training_level else None,
+                "disciplines": disciplines if disciplines else None,
+                "trainer_name": trainer_name if trainer_name else None,
+                "trainer_contact": trainer_contact if trainer_contact else None,
+                "feeding_schedule": feeding_schedule if feeding_schedule else None,
+                "exercise_schedule": exercise_schedule if exercise_schedule else None,
                 "current_health_status": current_health_status,
                 "veterinarian_name": veterinarian_name if veterinarian_name else None,
+                "veterinarian_contact": veterinarian_contact if veterinarian_contact else None,
+                "farrier_name": farrier_name if farrier_name else None,
+                "emergency_contact_name": emergency_contact_name if emergency_contact_name else None,
+                "emergency_contact_phone": emergency_contact_phone if emergency_contact_phone else None,
+                "last_vet_visit": last_vet_visit.isoformat() if last_vet_visit else None,
+                "last_dental": last_dental.isoformat() if last_dental else None,
+                "last_farrier": last_farrier.isoformat() if last_farrier else None,
                 "allergies": allergies if allergies else None,
                 "medications": medications if medications else None,
                 "notes": notes if notes else None,
@@ -1054,11 +1269,15 @@ def show_edit_horse_form():
             if uploaded_photo:
                 import os
                 import uuid
-                # Create storage directory
-                os.makedirs("storage/horse_photos", exist_ok=True)
+                # Get absolute path to storage directory
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                storage_dir = os.path.join(project_root, "storage", "horse_photos")
+                os.makedirs(storage_dir, exist_ok=True)
+                
                 # Save photo with unique name
                 photo_filename = f"{uuid.uuid4()}_{uploaded_photo.name}"
-                photo_path = f"storage/horse_photos/{photo_filename}"
+                photo_path = os.path.join(storage_dir, photo_filename)
+                
                 with open(photo_path, "wb") as f:
                     f.write(uploaded_photo.read())
                 update_data["profile_photo_path"] = photo_path
@@ -1118,6 +1337,28 @@ def show_add_horse_form():
             owner_name = st.text_input("Owner Name")
             boarding_type = st.selectbox("Boarding Type", ["", "Full Care", "Partial Care", "Self Care", "Pasture Board"])
         
+        # Training & Disciplines  
+        st.subheader("🏇 Training & Disciplines")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            training_level = st.text_input("Training Level")
+            disciplines = st.text_input("Disciplines")
+            
+        with col2:
+            trainer_name = st.text_input("Trainer Name")
+            trainer_contact = st.text_input("Trainer Contact")
+        
+        # Care Schedule
+        st.subheader("📅 Care Schedule")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            feeding_schedule = st.text_area("Feeding Schedule", height=80)
+            
+        with col2:
+            exercise_schedule = st.text_area("Exercise Schedule", height=80)
+        
         # Health Information
         st.subheader("🏥 Health Information")
         col1, col2 = st.columns(2)
@@ -1130,6 +1371,31 @@ def show_add_horse_form():
         with col2:
             allergies = st.text_area("Known Allergies", height=80)
             medications = st.text_area("Current Medications", height=80)
+        
+        # Emergency & Veterinary Contacts
+        st.subheader("🚨 Emergency & Veterinary Contacts")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            emergency_contact_name = st.text_input("Emergency Contact Name")
+            emergency_contact_phone = st.text_input("Emergency Contact Phone")
+            
+        with col2:
+            veterinarian_contact = st.text_input("Veterinarian Contact")
+            farrier_name = st.text_input("Farrier Name")
+        
+        # Health History
+        st.subheader("📋 Health History")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            last_vet_visit = st.date_input("Last Vet Visit", value=None)
+            
+        with col2:
+            last_dental = st.date_input("Last Dental", value=None)
+            
+        with col3:
+            last_farrier_date = st.date_input("Last Farrier", value=None)
         
         # Profile Photo
         st.subheader("📸 Profile Photo")
@@ -1170,8 +1436,21 @@ def show_add_horse_form():
                 "current_location": current_location if current_location else None,
                 "stall_number": stall_number if stall_number else None,
                 "boarding_type": boarding_type if boarding_type else None,
+                "training_level": training_level if training_level else None,
+                "disciplines": disciplines if disciplines else None,
+                "trainer_name": trainer_name if trainer_name else None,
+                "trainer_contact": trainer_contact if trainer_contact else None,
+                "feeding_schedule": feeding_schedule if feeding_schedule else None,
+                "exercise_schedule": exercise_schedule if exercise_schedule else None,
                 "current_health_status": current_health_status,
                 "veterinarian_name": veterinarian_name if veterinarian_name else None,
+                "veterinarian_contact": veterinarian_contact if veterinarian_contact else None,
+                "farrier_name": farrier_name if farrier_name else None,
+                "emergency_contact_name": emergency_contact_name if emergency_contact_name else None,
+                "emergency_contact_phone": emergency_contact_phone if emergency_contact_phone else None,
+                "last_vet_visit": last_vet_visit.isoformat() if last_vet_visit else None,
+                "last_dental": last_dental.isoformat() if last_dental else None,
+                "last_farrier": last_farrier_date.isoformat() if last_farrier_date else None,
                 "allergies": allergies if allergies else None,
                 "medications": medications if medications else None,
                 "notes": notes if notes else None,
@@ -1184,11 +1463,15 @@ def show_add_horse_form():
             if uploaded_photo:
                 import os
                 import uuid
-                # Create storage directory
-                os.makedirs("storage/horse_photos", exist_ok=True)
+                # Get absolute path to storage directory
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                storage_dir = os.path.join(project_root, "storage", "horse_photos")
+                os.makedirs(storage_dir, exist_ok=True)
+                
                 # Save photo with unique name
                 photo_filename = f"{uuid.uuid4()}_{uploaded_photo.name}"
-                photo_path = f"storage/horse_photos/{photo_filename}"
+                photo_path = os.path.join(storage_dir, photo_filename)
+                
                 with open(photo_path, "wb") as f:
                     f.write(uploaded_photo.read())
                 horse_data["profile_photo_path"] = photo_path
