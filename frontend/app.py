@@ -15,6 +15,7 @@ st.set_page_config(
 )
 
 # API Configuration
+# For Railway deployment, use localhost since both frontend and backend run in same container
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8002")
 
 # Helper Functions
