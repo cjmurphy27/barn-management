@@ -1,10 +1,7 @@
 #!/bin/bash
 
-# Run database migration on startup
-echo "Running database migration..."
-python migrate_on_startup.py
-
 # Start FastAPI backend on port 8002
+echo "Starting FastAPI backend..."
 uvicorn app.main:app --host 0.0.0.0 --port 8002 &
 
 # Wait for backend to start
