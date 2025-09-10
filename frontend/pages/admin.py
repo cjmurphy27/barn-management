@@ -11,12 +11,12 @@ def show_admin_page():
     st.title("🔐 Admin Panel")
     st.markdown("**User Management & Organization Administration**")
     
-    # Check if user has admin permissions (for now, just check if they're in the first barn as owner)
+    # Check if user has admin permissions (temporarily allow all authenticated users)
     barns = auth.get_user_barns()
-    is_admin = any(barn.get('user_role') == 'Owner' for barn in barns)
+    is_admin = len(barns) > 0  # Allow any user with barn access for now
     
     if not is_admin:
-        st.error("❌ Admin access required. Only barn owners can access this panel.")
+        st.error("❌ Admin access required. Please log in and ensure you have barn access.")
         return
     
     st.success("✅ Admin access granted")
