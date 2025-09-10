@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     PROPELAUTH_VERIFIER_KEY: Optional[str] = Field(default=None, description="PropelAuth verifier key")
     PROPELAUTH_AUTH_URL: Optional[str] = Field(default=None, description="PropelAuth auth URL")
     
+    # PropelAuth OAuth2 Settings
+    PROPELAUTH_CLIENT_ID: Optional[str] = Field(default=None, description="PropelAuth OAuth2 Client ID")
+    PROPELAUTH_CLIENT_SECRET: Optional[str] = Field(default=None, description="PropelAuth OAuth2 Client Secret")
+    
     # AI Integration Settings
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None, description="Anthropic Claude API key")
     

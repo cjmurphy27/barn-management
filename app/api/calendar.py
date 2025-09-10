@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/v1/calendar", tags=["calendar"])
 @router.post("/events", status_code=status.HTTP_201_CREATED)
 async def create_event(
     event: EventCreate,
+    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
     db: Session = Depends(get_db)
 ):
     """Create a new event/appointment"""
@@ -44,9 +45,13 @@ async def create_event(
         if event.duration_minutes:
             end_time = event.scheduled_date + timedelta(minutes=event.duration_minutes)
         
-        # Create new event
+        # Create new event with organization context
+        event_dict = event.dict()
+        if organization_id:
+            event_dict['organization_id'] = organization_id
+        
         db_event = Event(
-            **event.dict(),
+            **event_dict,
             end_time=end_time
         )
         
@@ -77,6 +82,7 @@ async def create_event(
 @router.get("/events")
 async def get_events(
     db: Session = Depends(get_db),
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     start_date: Optional[date] = Query(None, description="Filter from date"),
     end_date: Optional[date] = Query(None, description="Filter to date"),
     event_type: Optional[EventType] = Query(None, description="Filter by event type"),
@@ -93,6 +99,8 @@ async def get_events(
         query = db.query(Event)
         
         # Apply filters
+        if organization_id:
+            query = query.filter(Event.organization_id == organization_id)
         if start_date:
             query = query.filter(Event.scheduled_date >= start_date)
         if end_date:
@@ -254,6 +262,7 @@ async def delete_event(event_id: int, db: Session = Depends(get_db)):
 async def get_monthly_calendar(
     year: int = Query(..., description="Year for calendar view"),
     month: int = Query(..., ge=1, le=12, description="Month for calendar view"),
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     db: Session = Depends(get_db)
 ):
     """Get calendar view for a specific month"""
@@ -266,12 +275,18 @@ async def get_monthly_calendar(
             end_date = datetime(year, month + 1, 1) - timedelta(days=1)
         
         # Get events for the month
-        events = db.query(Event).filter(
+        query = db.query(Event).filter(
             and_(
                 Event.scheduled_date >= start_date,
                 Event.scheduled_date <= datetime.combine(end_date.date(), datetime.max.time())
             )
-        ).order_by(asc(Event.scheduled_date)).all()
+        )
+        
+        # Add organization filter
+        if organization_id:
+            query = query.filter(Event.organization_id == organization_id)
+        
+        events = query.order_by(asc(Event.scheduled_date)).all()
         
         # Get event type configs for colors
         type_configs = db.query(EventType_Config).all()
@@ -324,18 +339,25 @@ async def get_monthly_calendar(
 @router.get("/view/week", response_model=CalendarResponse)
 async def get_weekly_calendar(
     start_date: date = Query(..., description="Start date for week view"),
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     db: Session = Depends(get_db)
 ):
     """Get calendar view for a specific week"""
     try:
         end_date = start_date + timedelta(days=6)
         
-        events = db.query(Event).filter(
+        query = db.query(Event).filter(
             and_(
                 Event.scheduled_date >= start_date,
                 Event.scheduled_date <= datetime.combine(end_date, datetime.max.time())
             )
-        ).order_by(asc(Event.scheduled_date)).all()
+        )
+        
+        # Add organization filter
+        if organization_id:
+            query = query.filter(Event.organization_id == organization_id)
+            
+        events = query.order_by(asc(Event.scheduled_date)).all()
         
         # Format similar to monthly view
         type_configs = db.query(EventType_Config).all()
@@ -388,6 +410,7 @@ async def get_weekly_calendar(
 @router.post("/events/quick/vet-visit", response_model=EventResponse)
 async def create_quick_vet_visit(
     visit: QuickVetVisit,
+    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
     db: Session = Depends(get_db)
 ):
     """Quickly create a veterinary visit"""
@@ -403,11 +426,12 @@ async def create_quick_vet_visit(
         priority="medium"
     )
     
-    return await create_event(event_create, db)
+    return await create_event(event_create, organization_id, db)
 
 @router.post("/events/quick/farrier-visit", response_model=EventResponse)
 async def create_quick_farrier_visit(
     visit: QuickFarrierVisit,
+    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
     db: Session = Depends(get_db)
 ):
     """Quickly create a farrier visit"""
@@ -423,11 +447,12 @@ async def create_quick_farrier_visit(
         priority="medium"
     )
     
-    return await create_event(event_create, db)
+    return await create_event(event_create, organization_id, db)
 
 @router.post("/events/quick/supply-delivery", response_model=EventResponse)
 async def create_quick_supply_delivery(
     delivery: QuickSupplyDelivery,
+    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
     db: Session = Depends(get_db)
 ):
     """Quickly create a supply delivery event"""
@@ -443,7 +468,7 @@ async def create_quick_supply_delivery(
         priority="low"
     )
     
-    return await create_event(event_create, db)
+    return await create_event(event_create, organization_id, db)
 
 # Dashboard & Summary Endpoints
 
@@ -451,19 +476,25 @@ async def create_quick_supply_delivery(
 async def get_upcoming_events(
     days_ahead: int = Query(7, ge=1, le=30, description="Days to look ahead"),
     limit: int = Query(10, le=50, description="Maximum events to return"),
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     db: Session = Depends(get_db)
 ):
     """Get upcoming events for dashboard"""
     try:
         end_date = datetime.now() + timedelta(days=days_ahead)
         
-        events = db.query(Event).filter(
+        query = db.query(Event).filter(
             and_(
                 Event.scheduled_date >= datetime.now(),
                 Event.scheduled_date <= end_date,
                 Event.status.notin_([EventStatus.COMPLETED, EventStatus.CANCELLED])
             )
-        ).order_by(asc(Event.scheduled_date)).limit(limit).all()
+        )
+        
+        if organization_id:
+            query = query.filter(Event.organization_id == organization_id)
+            
+        events = query.order_by(asc(Event.scheduled_date)).limit(limit).all()
         
         return {
             "upcoming_events": [event.to_dict() for event in events],
@@ -482,15 +513,23 @@ async def get_upcoming_events(
         )
 
 @router.get("/overdue")
-async def get_overdue_events(db: Session = Depends(get_db)):
+async def get_overdue_events(
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
+    db: Session = Depends(get_db)
+):
     """Get overdue events that need attention"""
     try:
-        events = db.query(Event).filter(
+        query = db.query(Event).filter(
             and_(
                 Event.scheduled_date < datetime.now(),
                 Event.status.notin_([EventStatus.COMPLETED, EventStatus.CANCELLED])
             )
-        ).order_by(desc(Event.scheduled_date)).all()
+        )
+        
+        if organization_id:
+            query = query.filter(Event.organization_id == organization_id)
+            
+        events = query.order_by(desc(Event.scheduled_date)).all()
         
         return {
             "overdue_events": [event.to_dict() for event in events],

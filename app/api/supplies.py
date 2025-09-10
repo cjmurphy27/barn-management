@@ -35,18 +35,23 @@ router = APIRouter(prefix="/api/v1/supplies", tags=["supplies"])
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_supply(
     supply: SupplyCreate,
+    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
     db: Session = Depends(get_db)
 ):
     """Create a new supply item"""
     try:
-        # Check for duplicate name in same category
-        existing = db.query(Supply).filter(
+        # Check for duplicate name in same category within organization
+        query = db.query(Supply).filter(
             and_(
                 Supply.name == supply.name,
                 Supply.category == supply.category,
                 Supply.is_active == True
             )
-        ).first()
+        )
+        if organization_id:
+            query = query.filter(Supply.organization_id == organization_id)
+        
+        existing = query.first()
         
         if existing:
             raise HTTPException(
@@ -54,8 +59,11 @@ async def create_supply(
                 detail=f"Supply '{supply.name}' already exists in category '{supply.category.value}'"
             )
         
-        # Create new supply
-        db_supply = Supply(**supply.dict())
+        # Create new supply with organization context
+        supply_dict = supply.dict()
+        if organization_id:
+            supply_dict['organization_id'] = organization_id
+        db_supply = Supply(**supply_dict)
         
         db.add(db_supply)
         db.commit()
@@ -77,6 +85,7 @@ async def create_supply(
 @router.get("/")
 async def get_supplies(
     db: Session = Depends(get_db),
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     category: Optional[SupplyCategory] = Query(None, description="Filter by category"),
     low_stock_only: Optional[bool] = Query(False, description="Show only low stock items"),
     active_only: Optional[bool] = Query(True, description="Show only active items"),
@@ -90,6 +99,8 @@ async def get_supplies(
         query = db.query(Supply)
         
         # Apply filters
+        if organization_id:
+            query = query.filter(Supply.organization_id == organization_id)
         if category:
             query = query.filter(Supply.category == category)
         if active_only:
@@ -130,15 +141,23 @@ async def get_supplies(
         )
 
 @router.get("/dashboard")
-async def get_supply_dashboard(db: Session = Depends(get_db)):
+async def get_supply_dashboard(
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
+    db: Session = Depends(get_db)
+):
     """Get supply dashboard analytics"""
     try:
+        # Build query with organization filter
+        base_query = db.query(Supply).filter(Supply.is_active == True)
+        if organization_id:
+            base_query = base_query.filter(Supply.organization_id == organization_id)
+        
         # Basic counts
-        total_supplies = db.query(Supply).filter(Supply.is_active == True).count()
+        total_supplies = base_query.count()
         
         # Low stock items
         low_stock_items = []
-        supplies = db.query(Supply).filter(Supply.is_active == True).all()
+        supplies = base_query.all()
         low_stock_count = 0
         out_of_stock_count = 0
         total_value = 0.0
@@ -162,12 +181,15 @@ async def get_supply_dashboard(db: Session = Depends(get_db)):
         
         # Monthly spending (last 30 days)
         thirty_days_ago = date.today() - timedelta(days=30)
-        monthly_spending = db.query(func.sum(Transaction.total_amount)).filter(
+        transaction_query = db.query(func.sum(Transaction.total_amount)).filter(
             Transaction.purchase_date >= thirty_days_ago
-        ).scalar() or 0.0
+        )
+        if organization_id:
+            transaction_query = transaction_query.filter(Transaction.organization_id == organization_id)
+        monthly_spending = transaction_query.scalar() or 0.0
         
         # Top categories by spending
-        category_spending = db.query(
+        category_query = db.query(
             Supply.category,
             func.sum(TransactionItem.total_cost).label('total_spent')
         ).join(
@@ -176,7 +198,11 @@ async def get_supply_dashboard(db: Session = Depends(get_db)):
             Transaction, TransactionItem.transaction_id == Transaction.id
         ).filter(
             Transaction.purchase_date >= thirty_days_ago
-        ).group_by(Supply.category).order_by(desc('total_spent')).limit(5).all()
+        )
+        if organization_id:
+            category_query = category_query.filter(Supply.organization_id == organization_id)
+        
+        category_spending = category_query.group_by(Supply.category).order_by(desc('total_spent')).limit(5).all()
         
         top_categories = [
             {"category": cat.value, "amount": float(amount)} 
@@ -184,9 +210,10 @@ async def get_supply_dashboard(db: Session = Depends(get_db)):
         ]
         
         # Recent transactions
-        recent_transactions = db.query(Transaction).order_by(
-            desc(Transaction.purchase_date)
-        ).limit(5).all()
+        recent_query = db.query(Transaction).order_by(desc(Transaction.purchase_date))
+        if organization_id:
+            recent_query = recent_query.filter(Transaction.organization_id == organization_id)
+        recent_transactions = recent_query.limit(5).all()
         
         recent_list = [
             {
@@ -218,9 +245,16 @@ async def get_supply_dashboard(db: Session = Depends(get_db)):
         )
 
 @router.get("/{supply_id}")
-async def get_supply(supply_id: int, db: Session = Depends(get_db)):
+async def get_supply(
+    supply_id: int, 
+    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
+    db: Session = Depends(get_db)
+):
     """Get a specific supply by ID"""
-    supply = db.query(Supply).filter(Supply.id == supply_id).first()
+    query = db.query(Supply).filter(Supply.id == supply_id)
+    if organization_id:
+        query = query.filter(Supply.organization_id == organization_id)
+    supply = query.first()
     
     if not supply:
         raise HTTPException(
@@ -374,7 +408,8 @@ async def get_suppliers(
 async def process_receipt(
     receipt_image: UploadFile = File(...),
     vendor_hint: Optional[str] = Form(None),
-    expected_total: Optional[float] = Form(None)
+    expected_total: Optional[float] = Form(None),
+    organization_id: Optional[str] = Form(None, description="Organization/barn ID")
 ):
     """Process a receipt image using AI"""
     try:
@@ -422,7 +457,8 @@ async def process_receipt(
                 "ai_confidence_score": result["confidence_score"],
                 "ai_processing_notes": result.get("notes", ""),
                 "manual_review_required": result["manual_review_required"],
-                "status": TransactionStatus.PROCESSED if not result["manual_review_required"] else TransactionStatus.PENDING
+                "status": TransactionStatus.PROCESSED if not result["manual_review_required"] else TransactionStatus.PENDING,
+                "organization_id": organization_id  # Add organization context
             }
             
             db_transaction = Transaction(**transaction_data)
@@ -440,7 +476,8 @@ async def process_receipt(
                     "total_cost": item["total_price"],
                     "product_code": item.get("product_code"),
                     "brand": item.get("brand"),
-                    "ai_confidence": item.get("confidence", 0.5)
+                    "ai_confidence": item.get("confidence", 0.5),
+                    "organization_id": organization_id  # Add organization context
                 }
                 
                 db_item = TransactionItem(**item_data)

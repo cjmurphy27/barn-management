@@ -1,18 +1,265 @@
-import os
 import streamlit as st
+
+# Configure page - MUST be first Streamlit command
+st.set_page_config(
+    page_title="Stable Genius - Horse Management",
+    page_icon="🏇",  # Use emoji instead of problematic file path
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+import os
 import requests
 import pandas as pd
 from datetime import date, datetime, timedelta
 from typing import Optional, Dict, Any, List
 import json
+from auth_helper import auth
 
-# Configure page
-st.set_page_config(
-    page_title="Barn Lady - Horse Management",
-    page_icon="frontend/assets/barn_lady_logo.png",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Custom CSS for button styling and to hide automatic navigation
+st.markdown("""
+<style>
+/* CSS Version 3.1 - Clean sidebar with beige background and better navigation */
+
+/* Beige/cream sidebar background */
+section[data-testid="stSidebar"] {
+    background-color: #F5F2E8 !important;
+}
+
+section[data-testid="stSidebar"] > div {
+    background-color: #F5F2E8 !important;
+}
+
+/* Clean styling for sidebar text */
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] .stSelectbox label,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #5D4037 !important;
+}
+
+/* Style the selectbox dropdowns consistently */
+section[data-testid="stSidebar"] .stSelectbox > div > div {
+    background-color: white !important;
+    border: 1px solid #D2691E !important;
+    border-radius: 8px !important;
+}
+
+/* Style info boxes and alerts in sidebar */
+section[data-testid="stSidebar"] .stAlert {
+    background-color: rgba(210, 105, 30, 0.1) !important;
+    border: 1px solid #D2691E !important;
+    border-radius: 8px !important;
+    color: #5D4037 !important;
+}
+
+/* Style buttons in sidebar - FORCE logout button to be orange */
+section[data-testid="stSidebar"] .stButton > button,
+section[data-testid="stSidebar"] button,
+section[data-testid="stSidebar"] button[kind="secondary"],
+section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
+section[data-testid="stSidebar"] div[data-testid="stButton"] button,
+section[data-testid="stSidebar"] div[data-baseweb="button"] {
+    background-color: #D2691E !important;
+    background: #D2691E !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover,
+section[data-testid="stSidebar"] button:hover,
+section[data-testid="stSidebar"] button[kind="secondary"]:hover,
+section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+section[data-testid="stSidebar"] div[data-testid="stButton"] button:hover,
+section[data-testid="stSidebar"] div[data-baseweb="button"]:hover {
+    background-color: #CD853F !important;
+    background: #CD853F !important;
+    color: white !important;
+}
+
+/* Remove unnecessary horizontal lines */
+section[data-testid="stSidebar"] hr {
+    display: none !important;
+}
+
+/* Primary buttons - all variations */
+div.stButton > button[data-testid="baseButton-primary"],
+div.stButton > button[kind="primary"],
+.stButton button[data-baseweb="button"][kind="primary"],
+button[data-testid="baseButton-primary"] {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    border: none !important;
+    color: #1A3A52 !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Primary button hover states */
+div.stButton > button[data-testid="baseButton-primary"]:hover,
+div.stButton > button[kind="primary"]:hover,
+.stButton button[data-baseweb="button"][kind="primary"]:hover,
+button[data-testid="baseButton-primary"]:hover {
+    background-color: #4A6B82 !important;
+    background: #4A6B82 !important;
+    color: white !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Secondary buttons */
+div.stButton > button[data-testid="baseButton-secondary"],
+div.stButton > button[kind="secondary"],
+.stButton button[data-baseweb="button"][kind="secondary"],
+button[data-testid="baseButton-secondary"] {
+    background-color: transparent !important;
+    background: transparent !important;
+    border: 2px solid #8BB6CC !important;
+    color: #8BB6CC !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Secondary button hover */
+div.stButton > button[data-testid="baseButton-secondary"]:hover,
+div.stButton > button[kind="secondary"]:hover,
+.stButton button[data-baseweb="button"][kind="secondary"]:hover,
+button[data-testid="baseButton-secondary"]:hover {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    color: #1A3A52 !important;
+    border-color: #8BB6CC !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Regular buttons (no type specified) */
+div.stButton > button:not([data-testid*="primary"]):not([data-testid*="secondary"]),
+.stButton button:not([kind]),
+button[data-testid="baseButton-minimal"] {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    border: none !important;
+    color: #1A3A52 !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Regular button hover */
+div.stButton > button:not([data-testid*="primary"]):not([data-testid*="secondary"]):hover,
+.stButton button:not([kind]):hover,
+button[data-testid="baseButton-minimal"]:hover {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    color: white !important;
+    border-color: #4A6B82 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Form submit buttons */
+.stForm .stButton > button,
+form button[type="submit"] {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    border: none !important;
+    color: #1A3A52 !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+}
+
+.stForm .stButton > button:hover,
+form button[type="submit"]:hover {
+    background-color: #4A6B82 !important;
+    background: #4A6B82 !important;
+    color: white !important;
+}
+
+/* Catch-all for any remaining buttons - AGGRESSIVE OVERRIDE */
+button,
+[data-testid*="button"],
+[class*="button"],
+.stButton button,
+div.stButton button,
+*[role="button"] {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    background-image: none !important;
+    background-color: #8BB6CC !important;
+    border: 2px solid #8BB6CC !important;
+    color: #1A3A52 !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    min-height: 2.5rem !important;
+    white-space: nowrap !important;
+}
+
+/* Extra aggressive background override for default state */
+button:not(:hover):not(:active):not(:focus),
+.stButton button:not(:hover):not(:active):not(:focus),
+[data-testid*="button"]:not(:hover):not(:active):not(:focus) {
+    background-color: #8BB6CC !important;
+    background: #8BB6CC !important;
+    background-image: none !important;
+    border: 2px solid #8BB6CC !important;
+    border-color: #8BB6CC !important;
+    color: #1A3A52 !important;
+}
+
+/* Remove any pseudo-elements that might override background */
+button::before,
+button::after,
+.stButton button::before,
+.stButton button::after {
+    display: none !important;
+}
+
+button:hover,
+[data-testid*="button"]:hover,
+[class*="button"]:hover,
+.stButton button:hover,
+div.stButton button:hover,
+*[role="button"]:hover {
+    background-color: #4A6B82 !important;
+    background: #4A6B82 !important;
+    background-image: none !important;
+    border: 2px solid #4A6B82 !important;
+    border-color: #4A6B82 !important;
+    color: white !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+}
+
+/* Target only emoji characters for health status - more specific approach */
+/* This CSS uses a different method - targeting the actual emoji unicode ranges */
+
+/* Health status emojis - using CSS to target emoji characters specifically */
+.health-emoji {
+    font-size: 0.7rem !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # API Configuration
 # For Railway deployment, use localhost since both frontend and backend run in same container
@@ -20,18 +267,26 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8002")
 
 # Helper Functions
 def api_request(method: str, endpoint: str, data: dict = None) -> dict:
-    """Make API request with error handling"""
+    """Make API request with error handling and authentication"""
     url = f"{API_BASE_URL}{endpoint}"
+    
+    # Get authentication token
+    token = auth.get_access_token()
+    headers = {}
+    
+    # Add authorization header if we have a real token (not demo token)
+    if token and token != "demo_token_from_callback":
+        headers["Authorization"] = f"Bearer {token}"
     
     try:
         if method.upper() == "GET":
-            response = requests.get(url, params=data)
+            response = requests.get(url, params=data, headers=headers)
         elif method.upper() == "POST":
-            response = requests.post(url, json=data)
+            response = requests.post(url, json=data, headers=headers)
         elif method.upper() == "PUT":
-            response = requests.put(url, json=data)
+            response = requests.put(url, json=data, headers=headers)
         elif method.upper() == "DELETE":
-            response = requests.delete(url)
+            response = requests.delete(url, headers=headers)
         
         response.raise_for_status()
         return response.json() if response.content else {}
@@ -52,8 +307,9 @@ def format_date(date_obj) -> str:
         return date_obj.strftime("%B %d, %Y")
     return "Not specified"
 
-# Main App
-def main():
+def show_authenticated_app():
+    """Show the full application for authenticated users"""
+    
     # Custom CSS for Barn Lady color theme
     st.markdown("""
     <style>
@@ -110,28 +366,57 @@ def main():
         background-color: #FEFCF8;
         border-left: 4px solid #D2691E;
         padding: 10px;
-        border-radius: 8px;
         margin: 5px 0;
-        box-shadow: 0 2px 4px rgba(93, 64, 55, 0.1);
+        border-radius: 5px;
     }
     
-    /* Metrics */
-    .metric-container {
+    /* Success messages - matching sage green */
+    .stAlert > div {
+        background-color: #A5B68D;
+        color: #5D4037;
+    }
+    
+    /* Info messages - matching sage green but lighter */  
+    .stAlert[data-baseweb="notification"] {
+        background-color: #F5F2E8;
+    }
+    
+    /* Form styling */
+    .stTextInput, .stSelectbox, .stDateInput, .stTextArea {
+        background-color: #FEFCF8;
+    }
+    
+    /* Metric styling */
+    [data-testid*="button"],
+    .js-plotly-plot {
+        background-color: #FEFCF8 !important;
+        border-radius: 8px !important;
+        border: 1px solid #A5B68D !important;
+    }
+    
+    /* Remove focus outlines on buttons to prevent blue highlights */
+    [data-testid*="button"]:not(:hover):not(:active):not(:focus) {
+        outline: none !important;
+        border: 1px solid #A5B68D !important;
+    }
+    
+    /* File uploader */
+    .uploadedFile {
         background-color: #FEFCF8 !important;
         border: 1px solid #A5B68D !important;
-        border-radius: 8px !important;
     }
     
-    /* Horse cards and content areas */
-    div[data-testid="stMarkdown"] {
-        background-color: #FEFCF8;
-        border-radius: 8px;
+    /* Focus states */
+    [data-testid*="button"]:hover,
+    .stTextInput:hover,
+    .stSelectbox:hover {
+        border-color: #D2691E !important;
+        box-shadow: 0 0 0 1px #D2691E !important;
     }
     
-    /* Form areas and input backgrounds */
-    .stTextInput > div > div, .stTextArea > div > div, .stSelectbox > div > div {
-        background-color: #FEFCF8 !important;
-        border: 1px solid #D4C5B9 !important;
+    /* Progress bars */
+    .stProgress {
+        background-color: #A5B68D !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -139,44 +424,87 @@ def main():
     # Display logo and tagline
     col1, col2 = st.columns([1, 4])
     with col1:
-        st.image("frontend/assets/barn_lady_logo.png", width=150)
+        # Try different path approaches for the logo
+        import os
+        logo_paths = [
+            "assets/barn_lady_logo.png",
+            "./assets/barn_lady_logo.png", 
+            "frontend/assets/barn_lady_logo.png",
+            os.path.join(os.path.dirname(__file__), "assets", "barn_lady_logo.png")
+        ]
+        
+        logo_displayed = False
+        for logo_path in logo_paths:
+            try:
+                if os.path.exists(logo_path):
+                    st.image(logo_path, width=200)
+                    logo_displayed = True
+                    break
+            except:
+                continue
+                
+        if not logo_displayed:
+            # Fallback to emoji if logo not found
+            st.markdown("<div style='font-size: 60px; text-align: center;'>🏇</div>", unsafe_allow_html=True)
+    
     with col2:
-        st.markdown("""
-        <div style="display: flex; align-items: center; height: 150px;">
-            <div>
-                <h4 style="text-align: center; font-style: italic; margin: 0; color: #5D4037;">
-                    Complete horse management for your barn
-                </h4>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("Intelligent Barn Management System")
         st.markdown("---")
     
-    # Sidebar Navigation
-    st.sidebar.title("Navigation")
-    
-    # Check navigation priority: AI > Edit > Profile > Default
-    if 'ai_horse_id' in st.session_state and st.session_state.ai_horse_id:
-        page = "🤖 AI Assistant"
-    elif 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
-        if 'edit_mode' in st.session_state and st.session_state.edit_mode:
-            page = "Edit Horse"
-        else:
-            page = "Horse Profile"
-    else:
-        page = st.sidebar.selectbox(
-            "Choose a page:",
-            ["Horse Directory", "Add New Horse", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports"]
+    # Page Navigation - Always visible and consistent
+    with st.sidebar:
+        st.markdown("**Navigate to:**")
+        
+        # Initialize current page
+        current_page = "Horse Directory"
+        
+        # Check for AI navigation from query params
+        try:
+            query_params = st.experimental_get_query_params()
+            if "page" in query_params and query_params["page"][0] == "ai":
+                current_page = "🤖 AI Assistant"
+                # Clear the query params after using them
+                st.experimental_set_query_params()
+        except:
+            pass
+        
+        # Check if we're in a specific horse context to determine current page
+        if 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
+            if 'edit_mode' in st.session_state and st.session_state.edit_mode:
+                current_page = "Edit Horse"
+            else:
+                current_page = "Horse Profile"
+        
+        # Always show the same navigation options
+        all_pages = ["Horse Directory", "Add New Horse", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports"]
+        
+        # Add horse-specific pages when viewing a horse
+        if 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
+            all_pages = ["Horse Profile", "Edit Horse"] + ["—————————————"] + all_pages
+        
+        # Set default selection
+        try:
+            default_index = all_pages.index(current_page)
+        except ValueError:
+            default_index = 0
+            
+        page = st.selectbox(
+            "Navigate to:",
+            all_pages,
+            index=default_index,
+            label_visibility="collapsed"
         )
     
-    # Clear button in sidebar
-    if st.sidebar.button("← Back to Directory"):
-        # Clear all navigation session states
-        session_keys_to_clear = ['selected_horse_id', 'edit_mode', 'ai_horse_id', 'ai_horse_name']
-        for key in session_keys_to_clear:
-            if key in st.session_state:
-                del st.session_state[key]
+    # Clear horse context when navigating away from horse pages
+    if page == "Horse Directory" and 'selected_horse_id' in st.session_state:
+        # Clear horse selection when explicitly navigating to Horse Directory
+        del st.session_state['selected_horse_id']
+        if 'selected_horse_name' in st.session_state:
+            del st.session_state['selected_horse_name']
+        if 'edit_mode' in st.session_state:
+            del st.session_state['edit_mode']
         st.rerun()
+    
     
     # Route to appropriate page
     if page == "Horse Directory":
@@ -196,13 +524,53 @@ def main():
     elif page == "Reports":
         show_reports()
 
+# Main App
+def main():
+    # Authentication Check - using auth_helper
+    user = auth.get_current_user()
+    token = auth.get_access_token()
+    
+    # Check if callback was detected by auth_helper
+    auth_callback = st.session_state.get('auth_callback_detected', False)
+    
+    # Use authenticated user only
+    active_user = user
+    
+    if active_user:
+        # User is authenticated - show full multi-barn functionality
+        email = active_user.get('email', 'User')
+        
+        
+        # Get barns from authenticated user
+        barns = auth.get_user_barns()
+        
+        # Show user info and barn selector in sidebar for clean layout
+        auth.show_auth_sidebar()
+        
+        # USER IS AUTHENTICATED - SHOW FULL APPLICATION
+        show_authenticated_app()
+        
+    else:
+        # User not authenticated - show simplified login interface
+        auth.show_login_interface()
+        
+        st.markdown("---")
+        st.markdown("**Need an account?** Contact your barn administrator to get access.")
+        st.markdown("**New barn setup?** Contact us to set up your barn management system.")
+        st.stop()  # Stop execution here - don't load the rest of the app
+
 def show_horse_directory():
     """Display list of all horses with search and filtering"""
     st.subheader("Horse Directory")
     
     # Upcoming Events Dashboard Widget
     with st.expander("📅 Upcoming Events (Next 7 Days)", expanded=False):
-        upcoming = api_request("GET", "/api/v1/calendar/upcoming", {"days_ahead": 7, "limit": 5})
+        # Get upcoming events with organization filter
+        upcoming_params = {"days_ahead": 7, "limit": 5}
+        if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+            upcoming_params["organization_id"] = st.session_state.selected_barn_id
+        
+        upcoming = api_request("GET", "/api/v1/calendar/upcoming", upcoming_params)
         
         if upcoming and "upcoming_events" in upcoming and upcoming["upcoming_events"]:
             for event in upcoming["upcoming_events"]:
@@ -258,6 +626,10 @@ def show_horse_directory():
         "limit": 100
     }
     
+    # Add organization_id if available
+    if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+        params["organization_id"] = st.session_state.selected_barn_id
+    
     horses = api_request("GET", "/api/v1/horses/", params)
     
     if not horses:
@@ -305,7 +677,7 @@ def show_horse_directory():
                 
                 st.markdown(f"""
                 <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin: 10px 0; background-color: white;">
-                    <h4>{horse.get('name', 'Unknown')} {status_color}</h4>
+                    <h4>{horse.get('name', 'Unknown')} <span class="health-emoji">{status_color}</span></h4>
                     <p><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
                     <p><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
                     <p><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
@@ -333,13 +705,14 @@ def show_horse_directory():
                 
                 with col_btn3:
                     if st.button(f"🤖 Ask AI", key=f"ai_{horse['id']}", use_container_width=True):
+                        # Set AI context for the horse and navigate to AI page
                         st.session_state['ai_horse_id'] = horse['id']
                         st.session_state['ai_horse_name'] = horse['name']
-                        # Clear other navigation states to ensure AI page loads
-                        if 'selected_horse_id' in st.session_state:
-                            del st.session_state['selected_horse_id']
-                        if 'edit_mode' in st.session_state:
-                            del st.session_state['edit_mode']
+                        # Force navigation to AI page by using experimental_set_query_params
+                        try:
+                            st.experimental_set_query_params(page="ai", horse_id=horse['id'])
+                        except:
+                            pass
                         st.rerun()
 
 def show_ai_assistant():
@@ -598,15 +971,23 @@ def show_horse_profile():
             st.subheader(f"'{horse['barn_name']}'")
     
     with col_status:
-        status_color = {
-            "Excellent": "🟢 Excellent",
-            "Good": "🟢 Good", 
-            "Fair": "🟡 Fair",
-            "Poor": "🟠 Poor",
-            "Critical": "🔴 Critical"
-        }.get(horse.get('current_health_status', 'Good'), "⚪ Unknown")
+        status_text = horse.get('current_health_status', 'Good')
+        status_emoji = {
+            "Excellent": "🟢",
+            "Good": "🟢", 
+            "Fair": "🟡",
+            "Poor": "🟠",
+            "Critical": "🔴"
+        }.get(status_text, "⚪")
         
-        st.metric("Health Status", status_color)
+        st.markdown(f"""
+        <div style="background-color: #f0f2f6; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #ff4b4b;">
+            <p style="color: #262730; font-size: 0.75rem; margin: 0; font-weight: 600;">HEALTH STATUS</p>
+            <p style="color: #262730; font-size: 1.5rem; margin: 0; font-weight: 700;">
+                <span class="health-emoji">{status_emoji}</span> {status_text}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col_buttons:
         col_back, col_edit, col_ai = st.columns(3)
@@ -620,14 +1001,12 @@ def show_horse_profile():
                 st.rerun()
         with col_ai:
             if st.button("🤖", help="Ask AI", type="primary", use_container_width=True):
+                # Set AI context for current horse
                 st.session_state['ai_horse_id'] = horse_id
                 st.session_state['ai_horse_name'] = horse['name']
-                # Clear profile navigation to go to AI page
-                if 'selected_horse_id' in st.session_state:
-                    del st.session_state['selected_horse_id']
-                if 'edit_mode' in st.session_state:
-                    del st.session_state['edit_mode']
-                st.rerun()
+                # Keep selected_horse_id - we need navigation to switch to AI Assistant
+                # User can use navigation dropdown to get to AI Assistant page
+                st.success("AI context set! Use the navigation dropdown to go to AI Assistant.")
     
     st.divider()
     
@@ -1477,8 +1856,12 @@ def show_add_horse_form():
                     f.write(uploaded_photo.read())
                 horse_data["profile_photo_path"] = photo_path
             
-            # Submit to API
-            result = api_request("POST", "/api/v1/horses/", horse_data)
+            # Submit to API with organization context
+            endpoint = "/api/v1/horses/"
+            if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                endpoint = f"/api/v1/horses/?organization_id={st.session_state.selected_barn_id}"
+            
+            result = api_request("POST", endpoint, horse_data)
             
             if result:
                 st.success(f"✅ Successfully added {name} to the barn!")
@@ -1510,11 +1893,15 @@ def show_calendar():
                                         format_func=lambda x: x[1],
                                         index=current_month - 1)
         
-        # Get events for the month
-        events = api_request("GET", "/api/v1/calendar/view/month", {
+        # Get events for the month with organization filter
+        month_params = {
             "year": selected_year,
             "month": selected_month[0]
-        })
+        }
+        if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+            month_params["organization_id"] = st.session_state.selected_barn_id
+        
+        events = api_request("GET", "/api/v1/calendar/view/month", month_params)
         
         if events and "events" in events:
             st.subheader(f"Events in {selected_month[1]} {selected_year}")
@@ -1747,8 +2134,12 @@ def show_add_event_form():
                 "weather_dependent": weather_dependent
             }
             
-            # Submit to API
-            result = api_request("POST", "/api/v1/calendar/events", event_data)
+            # Submit to API with organization context
+            endpoint = "/api/v1/calendar/events"
+            if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                endpoint = f"/api/v1/calendar/events?organization_id={st.session_state.selected_barn_id}"
+            
+            result = api_request("POST", endpoint, event_data)
             
             if result:
                 st.success(f"✅ Successfully added event: {title}")
@@ -1941,7 +2332,12 @@ def show_supply_dashboard():
     """Display supply dashboard with key metrics"""
     
     # Get dashboard data
-    dashboard_data = api_request("GET", "/api/v1/supplies/dashboard")
+    # Get dashboard data with organization filter
+    dashboard_params = {}
+    if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+        dashboard_params["organization_id"] = st.session_state.selected_barn_id
+    
+    dashboard_data = api_request("GET", "/api/v1/supplies/dashboard", dashboard_params)
     
     if not dashboard_data:
         st.error("Unable to load dashboard data")
@@ -2150,6 +2546,10 @@ def show_inventory_management():
     if stock_filter == "Low Stock Only":
         params["low_stock_only"] = True
     
+    # Add organization_id if available
+    if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+        params["organization_id"] = st.session_state.selected_barn_id
+    
     supplies = api_request("GET", "/api/v1/supplies/", params)
     
     if not supplies:
@@ -2293,7 +2693,12 @@ def show_add_supply_form():
                 "expiration_tracking": expiration_tracking
             }
             
-            result = api_request("POST", "/api/v1/supplies/", supply_data)
+            # Submit to API with organization context
+            endpoint = "/api/v1/supplies/"
+            if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                endpoint = f"/api/v1/supplies/?organization_id={st.session_state.selected_barn_id}"
+            
+            result = api_request("POST", endpoint, supply_data)
             
             if result:
                 st.success(f"✅ Successfully added {name}!")
@@ -2495,6 +2900,10 @@ def show_receipt_scanner():
                         if expected_total > 0:
                             data["expected_total"] = expected_total
                         
+                        # Add organization context
+                        if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                            data["organization_id"] = st.session_state.selected_barn_id
+                        
                         # Make the request directly with requests
                         response = requests.post(
                             f"{API_BASE_URL}/api/v1/supplies/transactions/process-receipt",
@@ -2572,7 +2981,12 @@ def show_receipt_scanner():
                                     "last_cost_per_unit": item.get('unit_price') or item.get('total_price')
                                 }
                                 
-                                add_result = api_request("POST", "/api/v1/supplies/", supply_data)
+                                # Add to inventory with organization context
+                                endpoint = "/api/v1/supplies/"
+                                if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                                    endpoint = f"/api/v1/supplies/?organization_id={st.session_state.selected_barn_id}"
+                                
+                                add_result = api_request("POST", endpoint, supply_data)
                                 if add_result:
                                     st.success(f"✅ Added {item.get('description')} to inventory!")
                                 else:
@@ -2628,7 +3042,12 @@ def show_receipt_scanner():
                                 "last_cost_per_unit": item.get('unit_price') or item.get('total_price')
                             }
                             
-                            add_result = api_request("POST", "/api/v1/supplies/", supply_data)
+                            # Add to inventory with organization context
+                            endpoint = "/api/v1/supplies/"
+                            if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                                endpoint = f"/api/v1/supplies/?organization_id={st.session_state.selected_barn_id}"
+                            
+                            add_result = api_request("POST", endpoint, supply_data)
                             if add_result:
                                 success_count += 1
                         
