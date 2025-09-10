@@ -154,48 +154,19 @@ def show_admin_page():
                 # Assignment strategy
                 st.subheader("📋 Recommended Barn Assignment Strategy")
                 st.info("""
-                **Strategy:** Based on PropelAuth organization setup:
-                - **8 horses** → Fernbell (CJ Murphy's main barn)
-                - **1 horse** → Sunset Stables  
-                - **1 horse** → Golden Gate Ranch
-                - **Remaining horses** → Fernbell
+                **Strategy:** Based on actual horse locations:
+                - **All horses** → Fernbell (actual location of all horses)
+                - This matches the real setup where all horses are at Fernbell Farms
+                - You can manually move horses to other barns later for testing if needed
                 """)
                 
                 assignments = []
                 
-                # First 8 to Fernbell
-                fernbell_count = min(8, len(horses))
-                for i in range(fernbell_count):
+                # Assign ALL horses to Fernbell (matches actual setup)
+                for horse in horses:
                     assignments.append({
-                        'horse_id': horses[i]['id'],
-                        'horse_name': horses[i]['name'],
-                        'barn_id': 'fernbell_barn',
-                        'barn_name': 'Fernbell'
-                    })
-                
-                # 9th horse to Sunset Stables
-                if len(horses) > 8:
-                    assignments.append({
-                        'horse_id': horses[8]['id'],
-                        'horse_name': horses[8]['name'], 
-                        'barn_id': 'sunset_stables',
-                        'barn_name': 'Sunset Stables'
-                    })
-                
-                # 10th horse to Golden Gate Ranch
-                if len(horses) > 9:
-                    assignments.append({
-                        'horse_id': horses[9]['id'],
-                        'horse_name': horses[9]['name'],
-                        'barn_id': 'golden_gate_ranch', 
-                        'barn_name': 'Golden Gate Ranch'
-                    })
-                
-                # Remaining horses to Fernbell
-                for i in range(10, len(horses)):
-                    assignments.append({
-                        'horse_id': horses[i]['id'],
-                        'horse_name': horses[i]['name'],
+                        'horse_id': horse['id'],
+                        'horse_name': horse['name'],
                         'barn_id': 'fernbell_barn',
                         'barn_name': 'Fernbell'
                     })
