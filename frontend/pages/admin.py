@@ -22,7 +22,7 @@ def show_admin_page():
     st.success("✅ Admin access granted")
     
     # Tabs for different admin functions
-    tab1, tab2, tab3 = st.tabs(["👥 User Management", "🏇 Organization Settings", "📊 System Overview"])
+    tab1, tab2, tab3, tab4 = st.tabs(["👥 User Management", "🏇 Organization Settings", "📊 System Overview", "🐴 Horse Assignment"])
     
     with tab1:
         st.header("User Management")
@@ -131,6 +131,143 @@ def show_admin_page():
                     st.metric("Supply Items", "45")  # TODO: Get real count
                 
                 st.markdown("---")
+    
+    with tab4:
+        st.header("🐴 Horse-Barn Assignment")
+        st.write("Assign horses to the correct barns for proper isolation.")
+        
+        backend_url = st.secrets.get("BACKEND_URL", "http://localhost:8002")
+        
+        # Get all horses
+        try:
+            response = requests.get(f"{backend_url}/api/v1/horses")
+            if response.status_code == 200:
+                horses = response.json()
+                st.write(f"**Found {len(horses)} horses in database**")
+                
+                # Show current assignments
+                with st.expander("Current Horse Assignments", expanded=True):
+                    for i, horse in enumerate(horses):
+                        barn_id = horse.get('barn_id', 'None')
+                        st.write(f"{i+1}. **{horse.get('name', 'Unknown')}** (ID: {horse.get('id')}) - Barn: `{barn_id}`")
+                
+                # Assignment strategy
+                st.subheader("📋 Recommended Barn Assignment Strategy")
+                st.info("""
+                **Strategy:** Based on PropelAuth organization setup:
+                - **8 horses** → Fernbell (CJ Murphy's main barn)
+                - **1 horse** → Sunset Stables  
+                - **1 horse** → Golden Gate Ranch
+                - **Remaining horses** → Fernbell
+                """)
+                
+                assignments = []
+                
+                # First 8 to Fernbell
+                fernbell_count = min(8, len(horses))
+                for i in range(fernbell_count):
+                    assignments.append({
+                        'horse_id': horses[i]['id'],
+                        'horse_name': horses[i]['name'],
+                        'barn_id': 'fernbell_barn',
+                        'barn_name': 'Fernbell'
+                    })
+                
+                # 9th horse to Sunset Stables
+                if len(horses) > 8:
+                    assignments.append({
+                        'horse_id': horses[8]['id'],
+                        'horse_name': horses[8]['name'], 
+                        'barn_id': 'sunset_stables',
+                        'barn_name': 'Sunset Stables'
+                    })
+                
+                # 10th horse to Golden Gate Ranch
+                if len(horses) > 9:
+                    assignments.append({
+                        'horse_id': horses[9]['id'],
+                        'horse_name': horses[9]['name'],
+                        'barn_id': 'golden_gate_ranch', 
+                        'barn_name': 'Golden Gate Ranch'
+                    })
+                
+                # Remaining horses to Fernbell
+                for i in range(10, len(horses)):
+                    assignments.append({
+                        'horse_id': horses[i]['id'],
+                        'horse_name': horses[i]['name'],
+                        'barn_id': 'fernbell_barn',
+                        'barn_name': 'Fernbell'
+                    })
+                
+                # Show assignment plan
+                st.subheader("🗂️ Assignment Plan")
+                barn_counts = {}
+                for assignment in assignments:
+                    barn_name = assignment['barn_name']
+                    barn_counts[barn_name] = barn_counts.get(barn_name, 0) + 1
+                    st.write(f"• **{assignment['horse_name']}** → {assignment['barn_name']}")
+                
+                # Summary
+                st.subheader("📊 Assignment Summary")
+                for barn_name, count in barn_counts.items():
+                    st.write(f"• **{barn_name}:** {count} horses")
+                
+                # Execute button
+                st.markdown("---")
+                col1, col2 = st.columns([1, 1])
+                
+                with col1:
+                    if st.button("🚀 Execute Barn Assignments", type="primary", use_container_width=True):
+                        success_count = 0
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        for i, assignment in enumerate(assignments):
+                            horse_id = assignment['horse_id']
+                            barn_id = assignment['barn_id']
+                            horse_name = assignment['horse_name']
+                            barn_name = assignment['barn_name']
+                            
+                            status_text.text(f"Assigning {horse_name} to {barn_name}...")
+                            
+                            try:
+                                update_response = requests.put(
+                                    f"{backend_url}/api/v1/horses/{horse_id}",
+                                    json={"barn_id": barn_id}
+                                )
+                                
+                                if update_response.status_code == 200:
+                                    success_count += 1
+                                else:
+                                    st.error(f"Failed to assign {horse_name}: {update_response.status_code}")
+                                    
+                            except Exception as e:
+                                st.error(f"Error assigning {horse_name}: {str(e)}")
+                            
+                            progress_bar.progress((i + 1) / len(assignments))
+                        
+                        status_text.text("Assignment complete!")
+                        
+                        if success_count == len(assignments):
+                            st.success(f"🎉 Successfully assigned all {success_count} horses to barns!")
+                            st.balloons()
+                            st.info("🔄 **Next step:** Go back to the main app and refresh to see horses in their assigned barns.")
+                        else:
+                            st.warning(f"⚠️ Assigned {success_count}/{len(assignments)} horses. Some assignments may have failed.")
+                
+                with col2:
+                    st.info("⚠️ **Warning:** This will update all horse-barn assignments in the database. Make sure this is what you want to do.")
+                
+            else:
+                st.error(f"❌ Failed to get horses from backend: {response.status_code}")
+                st.code(f"URL: {backend_url}/api/v1/horses")
+                if response.text:
+                    st.code(response.text[:500])
+                
+        except Exception as e:
+            st.error(f"❌ Error connecting to backend: {str(e)}")
+            st.code(f"Backend URL: {backend_url}")
 
 if __name__ == "__main__":
     show_admin_page()
