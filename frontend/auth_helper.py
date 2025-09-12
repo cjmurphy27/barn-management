@@ -35,17 +35,27 @@ class StreamlitAuth:
             self._config_loaded = True
         
     def get_login_url(self, redirect_uri: str = None) -> str:
-        """Generate PropelAuth login URL with proper redirect"""
+        """Generate PropelAuth OAuth login URL with proper redirect"""
         self._load_config()
-        if redirect_uri is None:
-            redirect_uri = f"http://localhost:8501/?auth=callback"  # Default with callback
         
-        # Use PropelAuth's simple login with redirect back to our app
-        # PropelAuth handles the auth and redirects back to our callback URL
+        # Determine the correct redirect URI based on environment
+        if redirect_uri is None:
+            # Check if we're on Railway
+            is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
+            if is_railway:
+                redirect_uri = "https://web-production-10a5d.up.railway.app/?auth=callback"
+            else:
+                redirect_uri = "http://localhost:8501/?auth=callback"
+        
+        # Use PropelAuth's OAuth authorization flow
+        # This should provide an authorization code that we can exchange for a token
         params = urlencode({
-            'redirect_uri': redirect_uri
+            'response_type': 'code',
+            'client_id': os.getenv('PROPELAUTH_CLIENT_ID') or st.secrets.get('PROPELAUTH_CLIENT_ID'),
+            'redirect_uri': redirect_uri,
+            'scope': 'openid profile email'
         })
-        return f"{self.auth_url}/login?{params}"
+        return f"{self.auth_url}/oauth/authorize?{params}"
     
     def get_account_url(self) -> str:
         """Get PropelAuth account management URL"""
@@ -75,7 +85,7 @@ class StreamlitAuth:
     
 
     def get_access_token(self) -> Optional[str]:
-        """Get access token from session - simplified working version"""
+        """Get access token from session or process OAuth callback"""
         # First check session state
         if "access_token" in st.session_state and st.session_state.access_token:
             return st.session_state.access_token
@@ -84,13 +94,90 @@ class StreamlitAuth:
         if st.session_state.get('user_logged_out', False):
             return None
         
-        # For development, create a simple demo token
-        # This allows testing the app functionality while we plan proper OAuth
-        return None
+        # Check for OAuth callback and process it
+        return self._process_oauth_callback()
     
     def set_access_token(self, token: str):
         """Set access token in session state"""
         st.session_state.access_token = token
+    
+    def _process_oauth_callback(self) -> Optional[str]:
+        """Process OAuth callback and exchange authorization code for access token"""
+        try:
+            # Get query parameters
+            if hasattr(st, 'query_params'):
+                query_params = st.query_params
+            else:
+                query_params = st.experimental_get_query_params()
+            
+            print(f"🔍 OAuth Callback - Query params: {dict(query_params)}")
+            
+            # Check if we have an authorization code from OAuth flow
+            if 'code' in query_params:
+                auth_code = query_params['code'][0] if isinstance(query_params['code'], list) else query_params['code']
+                print(f"🔍 Found OAuth authorization code: {auth_code[:20]}...")
+                
+                # Determine the correct redirect URI that was used
+                is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
+                redirect_uri = "https://web-production-10a5d.up.railway.app/?auth=callback" if is_railway else "http://localhost:8501/?auth=callback"
+                
+                # Exchange authorization code for access token via backend
+                response = requests.post(
+                    f"{self.backend_url}/api/v1/auth/exchange-code",
+                    json={
+                        "code": auth_code,
+                        "redirect_uri": redirect_uri
+                    },
+                    timeout=15
+                )
+                
+                print(f"🔍 Backend token exchange response: {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"🔍 Token exchange result: {result.get('success', False)}")
+                    
+                    if result.get("success"):
+                        # Extract user information from the response
+                        user_data = result.get("user", {})
+                        access_token = result.get("access_token", "oauth_success_token")
+                        
+                        email = user_data.get("email")
+                        print(f"🔍 OAuth extracted user email: {email}")
+                        
+                        # Store user and token in session
+                        st.session_state.user = user_data
+                        st.session_state.access_token = access_token
+                        st.session_state.user_email = email
+                        
+                        # Clear query parameters to prevent reprocessing
+                        if hasattr(st, 'query_params'):
+                            st.query_params.clear()
+                        else:
+                            st.experimental_set_query_params()
+                        
+                        print(f"🔍 OAuth flow completed successfully for: {email}")
+                        return access_token
+                    else:
+                        error_msg = result.get("error", "Unknown error")
+                        print(f"🔍 Token exchange failed: {error_msg}")
+                        st.error(f"Authentication failed: {error_msg}")
+                else:
+                    print(f"🔍 Backend token exchange failed: {response.status_code}")
+                    print(f"🔍 Response text: {response.text}")
+                    st.error(f"Authentication service error: {response.status_code}")
+            
+            # Check for simple callback fallback (no code parameter)
+            elif 'auth' in query_params and 'callback' in str(query_params['auth']):
+                print(f"🔍 Simple callback detected (no OAuth code) - this shouldn't happen with proper OAuth")
+                st.warning("Authentication callback received but no authorization code found. Please try logging in again.")
+            
+            return None
+            
+        except Exception as e:
+            print(f"🔍 OAuth callback processing error: {str(e)}")
+            st.error(f"Authentication error: {str(e)}")
+            return None
     
     def _exchange_code_for_token(self, auth_code: str) -> Optional[str]:
         """Exchange OAuth authorization code for access token"""
@@ -247,32 +334,36 @@ class StreamlitAuth:
             return []
     
     def show_login_interface(self):
-        """Show simple demo login interface for development"""
-        st.info("🔐 **Demo Login - Choose a test user**")
+        """Show PropelAuth OAuth login interface"""
+        st.info("🔐 **PropelAuth Login**")
+        st.markdown("Sign in with your PropelAuth account to access your barn management system.")
         
-        # Center the login options
+        # Center the login button
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.markdown("**Select demo user:**")
+            login_url = self.get_login_url()
             
-            if st.button("👤 CJ Murphy (cjmurphy.nyc@gmail.com)", use_container_width=True, type="primary"):
-                # Set demo authentication for CJ and fetch real barn data
-                self._setup_demo_user("cjmurphy.nyc@gmail.com")
-                
-            if st.button("👤 Chris Carril (chris@carril.com)", use_container_width=True, type="secondary"):
-                # Set demo authentication for Chris and fetch real barn data
-                self._setup_demo_user("chris@carril.com")
+            if hasattr(st, 'link_button'):
+                if st.button("🚀 Sign In with PropelAuth", use_container_width=True, type="primary"):
+                    st.markdown(f'<meta http-equiv="refresh" content="0; url={login_url}" />', unsafe_allow_html=True)
+                    st.write("Redirecting to PropelAuth...")
+            else:
+                st.markdown(
+                    f'<a href="{login_url}" target="_self" style="text-decoration: none;">'
+                    f'<button style="background-color: #ff4b4b; color: white; border: none; '
+                    f'padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; '
+                    f'width: 100%; font-size: 16px; font-weight: bold;">'
+                    f'🚀 Sign In with PropelAuth</button></a>',
+                    unsafe_allow_html=True
+                )
         
         st.markdown("---")
+        st.info("**Real PropelAuth Authentication**: Your barn access is determined by your PropelAuth organization membership.")
         
-        # Next steps info
-        with st.expander("🔧 Next Steps", expanded=False):
-            st.write("**This is a temporary demo login for testing.**")
-            st.write("**Next steps for production:**")
-            st.write("1. Switch to Production PropelAuth environment")
-            st.write("2. Implement proper OAuth 2.0 flow")
-            st.write("3. Configure real multi-user authentication")
-            st.write("4. Deploy to Railway with production settings")
+        # Debug info for development
+        with st.expander("🔧 Debug Info", expanded=False):
+            st.write(f"**Login URL**: {login_url}")
+            st.write("**Flow**: PropelAuth OAuth → Authorization Code → Backend Token Exchange → User Data")
 
     def show_login_button(self, text: str = "Login with PropelAuth"):
         """Show login button that redirects to PropelAuth"""
