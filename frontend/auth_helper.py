@@ -53,7 +53,7 @@ class StreamlitAuth:
         client_id = os.getenv('PROPELAUTH_CLIENT_ID') or st.secrets.get('PROPELAUTH_CLIENT_ID')
         
         if not client_id:
-            print("❌ No PropelAuth client ID found")
+            print("❌ No PropelAuth client ID found - falling back to hosted login")
             return f"{self.auth_url}/login?redirect_uri={redirect_uri}"
         
         # Generate a random state parameter for CSRF protection
@@ -72,8 +72,9 @@ class StreamlitAuth:
             'state': state
         })
         
-        # Try the correct PropelAuth OAuth endpoint
-        oauth_url = f"{self.auth_url}/propelauth/oauth/authorize?{params}"
+        # Use PropelAuth's backend OAuth authorization endpoint
+        # This should match the token endpoint pattern: /api/backend/v1/oauth/
+        oauth_url = f"{self.auth_url}/api/backend/v1/oauth/authorize?{params}"
         print(f"🔍 Generated OAuth URL: {oauth_url}")
         return oauth_url
     
