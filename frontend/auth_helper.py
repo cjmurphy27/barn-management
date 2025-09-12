@@ -56,12 +56,20 @@ class StreamlitAuth:
             print("❌ No PropelAuth client ID found")
             return f"{self.auth_url}/login?redirect_uri={redirect_uri}"
         
+        # Generate a random state parameter for CSRF protection
+        import secrets
+        state = secrets.token_urlsafe(32)
+        
+        # Store state in session for validation
+        st.session_state.oauth_state = state
+        
         # Use PropelAuth's proper OAuth authorization endpoint
         params = urlencode({
             'response_type': 'code',
             'client_id': client_id,
             'redirect_uri': redirect_uri,
-            'scope': 'openid email profile'
+            'scope': 'openid email profile',
+            'state': state
         })
         
         # Try the correct PropelAuth OAuth endpoint
@@ -128,6 +136,23 @@ class StreamlitAuth:
             if 'code' in query_params:
                 auth_code = query_params['code'][0] if isinstance(query_params['code'], list) else query_params['code']
                 print(f"🔍 Found OAuth authorization code: {auth_code[:20]}...")
+                
+                # Validate state parameter for CSRF protection
+                received_state = query_params.get('state')
+                if received_state:
+                    received_state = received_state[0] if isinstance(received_state, list) else received_state
+                    stored_state = st.session_state.get('oauth_state')
+                    
+                    if not stored_state or received_state != stored_state:
+                        print(f"🔍 OAuth state validation failed")
+                        st.error("OAuth state validation failed. Please try logging in again.")
+                        return None
+                    
+                    print(f"🔍 OAuth state validated successfully")
+                else:
+                    print(f"🔍 No state parameter received in OAuth callback")
+                    st.error("Invalid OAuth callback - missing state parameter.")
+                    return None
                 
                 # Determine the correct redirect URI that was used
                 is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
