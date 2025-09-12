@@ -48,15 +48,12 @@ class StreamlitAuth:
             else:
                 redirect_uri = "http://localhost:8501/?auth=callback"
         
-        # Use PropelAuth's OAuth authorization flow
-        # This should provide an authorization code that we can exchange for a token
+        # Use PropelAuth's hosted login with redirect
+        # Test environments may not support standard OAuth endpoints
         params = urlencode({
-            'response_type': 'code',
-            'client_id': os.getenv('PROPELAUTH_CLIENT_ID') or st.secrets.get('PROPELAUTH_CLIENT_ID'),
-            'redirect_uri': redirect_uri,
-            'scope': 'openid profile email'
+            'redirect_uri': redirect_uri
         })
-        return f"{self.auth_url}/oauth/authorize?{params}"
+        return f"{self.auth_url}/login?{params}"
     
     def get_account_url(self) -> str:
         """Get PropelAuth account management URL"""
