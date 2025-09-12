@@ -48,12 +48,26 @@ class StreamlitAuth:
             else:
                 redirect_uri = "http://localhost:8501/?auth=callback"
         
-        # Use PropelAuth's hosted login with redirect
-        # Test environments may not support standard OAuth endpoints
+        # Use proper OAuth 2.0 flow for PropelAuth test environment
+        # First, get the client credentials
+        client_id = os.getenv('PROPELAUTH_CLIENT_ID') or st.secrets.get('PROPELAUTH_CLIENT_ID')
+        
+        if not client_id:
+            print("❌ No PropelAuth client ID found")
+            return f"{self.auth_url}/login?redirect_uri={redirect_uri}"
+        
+        # Use PropelAuth's proper OAuth authorization endpoint
         params = urlencode({
-            'redirect_uri': redirect_uri
+            'response_type': 'code',
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'scope': 'openid email profile'
         })
-        return f"{self.auth_url}/login?{params}"
+        
+        # Try the correct PropelAuth OAuth endpoint
+        oauth_url = f"{self.auth_url}/propelauth/oauth/authorize?{params}"
+        print(f"🔍 Generated OAuth URL: {oauth_url}")
+        return oauth_url
     
     def get_account_url(self) -> str:
         """Get PropelAuth account management URL"""
@@ -165,44 +179,16 @@ class StreamlitAuth:
                     print(f"🔍 Response text: {response.text}")
                     st.error(f"Authentication service error: {response.status_code}")
             
-            # Check for PropelAuth hosted login callback (test environment)
+            # Check for fallback callback (should not happen with proper OAuth)
             elif 'auth' in query_params and 'callback' in str(query_params['auth']):
-                print(f"🔍 PropelAuth hosted login callback detected - extracting user from session")
+                print(f"🔍 Fallback callback detected - OAuth should provide 'code' parameter")
+                st.error("OAuth callback received but no authorization code found. Please check PropelAuth OAuth configuration.")
                 
-                # Clear query parameters first to prevent loops
+                # Clear query parameters to prevent loops
                 if hasattr(st, 'query_params'):
                     st.query_params.clear()
                 else:
                     st.experimental_set_query_params()
-                
-                # For now, since we can't easily extract the real user from PropelAuth hosted login,
-                # we'll fall back to user selection. This is a limitation of the test environment.
-                print(f"🔍 PropelAuth hosted login successful - user needs to select profile")
-                st.success("✅ PropelAuth authentication successful!")
-                st.info("Please select your user profile to continue:")
-                
-                # Show user selection
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("👤 CJ Murphy (cjmurphy.nyc@gmail.com)", use_container_width=True, type="primary"):
-                        user_data = {"email": "cjmurphy.nyc@gmail.com", "user_id": "cj_user"}
-                        st.session_state.user = user_data
-                        st.session_state.access_token = "propelauth_session_validated"
-                        st.session_state.user_email = "cjmurphy.nyc@gmail.com"
-                        st.rerun()
-                        
-                with col2:
-                    if st.button("👤 Chris Carril (chris@carril.com)", use_container_width=True, type="secondary"):
-                        user_data = {"email": "chris@carril.com", "user_id": "chris_user"}
-                        st.session_state.user = user_data
-                        st.session_state.access_token = "propelauth_session_validated"
-                        st.session_state.user_email = "chris@carril.com"
-                        st.rerun()
-                
-                st.info("💡 **Note**: In production, the user would be automatically detected from PropelAuth OAuth tokens.")
-                
-                # Return None so the login interface stays visible until user selects
-                return None
             
             return None
             
