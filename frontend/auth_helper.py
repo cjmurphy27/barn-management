@@ -230,6 +230,12 @@ class StreamlitAuth:
                 selected_user = st.selectbox("Select your account:", users)
                 
                 if st.button("Continue with Selected User"):
+                    # Clear query parameters that triggered this callback
+                    if hasattr(st, 'query_params'):
+                        st.query_params.clear()
+                    else:
+                        st.experimental_set_query_params()
+                    
                     # Clear the callback state to prevent loops
                     if 'processing_propelauth_login' in st.session_state:
                         del st.session_state.processing_propelauth_login
@@ -338,8 +344,16 @@ class StreamlitAuth:
                 # Mark callback as processed to prevent further processing
                 st.session_state.callback_processed = True
                 
+                # Clear processing flags to ensure clean state
+                if 'processing_propelauth_login' in st.session_state:
+                    del st.session_state.processing_propelauth_login
+                
                 st.success(f"✅ Logged in as {email}")
-                # Don't call st.rerun() here - let the page refresh naturally
+                
+                # Force a rerun to refresh the page with authenticated state
+                time.sleep(0.5)  # Small delay to show success message
+                st.rerun()
+                
             else:
                 st.error(f"Failed to setup demo user for {email}")
                 
