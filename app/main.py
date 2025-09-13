@@ -108,7 +108,7 @@ async def validate_propelauth_hosted_token(token_data: dict):
         # For PropelAuth hosted login, the token should be a JWT
         # Let's try to validate it with PropelAuth's API
         from app.core.auth import auth
-        user = auth.validate_access_token(token)
+        user = auth.validate_access_token_and_get_user(f"Bearer {token}")
         
         if user:
             # Get user barn access
@@ -288,7 +288,7 @@ async def exchange_code_for_token(request_data: dict):
             if access_token:
                 # Validate the token and get user info
                 from app.core.auth import auth
-                user = auth.validate_access_token(access_token)
+                user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
                 
                 if user:
                     return {
@@ -321,7 +321,7 @@ async def validate_propelauth_token(request_data: dict):
         import requests
         
         # Use PropelAuth's token validation endpoint
-        validate_url = f"{settings.PROPELAUTH_URL}/api/backend/v1/validate_access_token"
+        validate_url = f"{settings.PROPELAUTH_URL}/api/backend/v1/validate_access_token_and_get_user"
         
         headers = {
             "Authorization": f"Bearer {settings.PROPELAUTH_API_KEY}",
@@ -444,7 +444,7 @@ async def handle_auth_callback(code: str = None, state: str = None, error: str =
             if access_token:
                 # Validate the token and get user info
                 from app.core.auth import auth
-                user = auth.validate_access_token(access_token)
+                user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
                 
                 if user:
                     # Create a simple session token for the frontend
@@ -504,7 +504,7 @@ async def validate_session(request_data: dict):
         access_token = session_data.get("access_token")
         if access_token:
             from app.core.auth import auth
-            user = auth.validate_access_token(access_token)
+            user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
             
             if user:
                 # Get user barn access

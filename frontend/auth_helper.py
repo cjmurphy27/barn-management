@@ -36,50 +36,31 @@ class StreamlitAuth:
             self._config_loaded = True
         
     def get_login_url(self, redirect_uri: str = None) -> str:
-        """Generate PropelAuth OAuth2 authorization URL"""
+        """Generate PropelAuth hosted login URL"""
         self._load_config()
         
         # Determine the correct redirect URI based on environment  
         if redirect_uri is None:
             # Check if we're on Railway
             is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
+            print(f"🔍 Environment check - RAILWAY_ENVIRONMENT_NAME: '{os.getenv('RAILWAY_ENVIRONMENT_NAME')}'")
+            print(f"🔍 is_railway: {is_railway}")
             if is_railway:
                 redirect_uri = "https://web-production-10a5d.up.railway.app/"
+                print(f"🔍 Using Railway redirect URI: {redirect_uri}")
             else:
                 redirect_uri = "http://localhost:8000/"
+                print(f"🔍 Using localhost redirect URI: {redirect_uri}")
         
-        # Generate a random state parameter for CSRF protection
-        import secrets
-        state = secrets.token_urlsafe(32)
-        
-        # Store state in session for validation
-        st.session_state.oauth_state = state
-        
-        # Get client ID from secrets or environment
-        client_id = st.secrets.get("PROPELAUTH_CLIENT_ID") or os.getenv("PROPELAUTH_CLIENT_ID")
-        
-        if not client_id:
-            # Fall back to API key as client ID (some PropelAuth setups use this)
-            client_id = st.secrets.get("PROPELAUTH_API_KEY") or os.getenv("PROPELAUTH_API_KEY")
-        
-        if not client_id:
-            print("❌ No PropelAuth client ID found")
-            return f"{self.auth_url}/login"
-        
-        # Use PropelAuth's OAuth2 authorization endpoint
+        # Use PropelAuth's hosted login with redirect
         from urllib.parse import urlencode
         params = urlencode({
-            'response_type': 'code',
-            'client_id': client_id,
-            'redirect_uri': redirect_uri,
-            'scope': 'openid profile email',
-            'state': state
+            'redirect_uri': redirect_uri
         })
         
-        # Use the standard OAuth2 authorize endpoint
-        oauth_url = f"{self.auth_url}/oauth/authorize?{params}"
-        print(f"🔍 Generated OAuth2 URL: {oauth_url}")
-        return oauth_url
+        hosted_login_url = f"{self.auth_url}/login?{params}"
+        print(f"🔍 Generated hosted login URL: {hosted_login_url}")
+        return hosted_login_url
     
     def get_account_url(self) -> str:
         """Get PropelAuth account management URL"""
