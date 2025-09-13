@@ -60,19 +60,6 @@ async def startup_event():
 async def health_check():
     return {"status": "healthy", "database": "connected", "version": "2.0.0"}
 
-@app.get("/debug/env")
-async def debug_environment():
-    """Debug endpoint to check environment variables (temporary)"""
-    import os
-    return {
-        "propelauth_url_set": bool(os.getenv("PROPELAUTH_URL")),
-        "propelauth_api_key_set": bool(os.getenv("PROPELAUTH_API_KEY")),
-        "propelauth_verifier_key_set": bool(os.getenv("PROPELAUTH_VERIFIER_KEY")),
-        "railway_env": bool(os.getenv("RAILWAY_ENVIRONMENT_NAME")),
-        "propelauth_url_value": os.getenv("PROPELAUTH_URL", "not_set")[:50] if os.getenv("PROPELAUTH_URL") else "not_set",
-        "settings_loaded": bool(settings.PROPELAUTH_URL and settings.PROPELAUTH_API_KEY)
-    }
-
 @app.get("/api/v1/auth/user")
 async def get_user_info(user = Depends(get_current_user)):
     """Get current user information and barn access"""
@@ -98,42 +85,30 @@ async def get_user_barns(user = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Error retrieving barn access")
 
 @app.post("/api/v1/auth/validate-token")
-async def validate_propelauth_hosted_token(token_data: dict):
-    """Validate PropelAuth hosted login token and return user data"""
+async def validate_token_debug(token_data: dict):
+    """Debug endpoint to test token validation"""
     try:
         token = token_data.get("token", "")
         if not token:
-            return {"success": False, "error": "No token provided"}
+            return {"valid": False, "error": "No token provided"}
         
-        # For PropelAuth hosted login, the token should be a JWT
-        # Let's try to validate it with PropelAuth's API
+        # Test with our auth system
         from app.core.auth import auth
-        user = auth.validate_access_token_and_get_user(f"Bearer {token}")
+        user = auth.validate_access_token(token)
         
         if user:
-            # Get user barn access
-            barns = get_user_barn_access(user)
-            
-            # Format user data for frontend
-            user_data = {
+            return {
+                "valid": True,
                 "user_id": user.user_id,
                 "email": user.email,
-                "first_name": getattr(user, 'first_name', ''),
-                "last_name": getattr(user, 'last_name', ''),
-                "organizations": barns
-            }
-            
-            return {
-                "success": True,
-                "user": user_data,
-                "access_token": token
+                "organizations": len(user.org_id_to_org_info) if hasattr(user, 'org_id_to_org_info') else 0
             }
         else:
-            return {"success": False, "error": "Token validation failed"}
+            return {"valid": False, "error": "Token validation failed"}
             
     except Exception as e:
         logger.error(f"Token validation error: {str(e)}")
-        return {"success": False, "error": str(e)}
+        return {"valid": False, "error": str(e)}
 
 @app.get("/api/v1/auth/test-propelauth-connection")
 async def test_propelauth_connection():
@@ -288,7 +263,7 @@ async def exchange_code_for_token(request_data: dict):
             if access_token:
                 # Validate the token and get user info
                 from app.core.auth import auth
-                user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
+                user = auth.validate_access_token(access_token)
                 
                 if user:
                     return {
@@ -321,7 +296,7 @@ async def validate_propelauth_token(request_data: dict):
         import requests
         
         # Use PropelAuth's token validation endpoint
-        validate_url = f"{settings.PROPELAUTH_URL}/api/backend/v1/validate_access_token_and_get_user"
+        validate_url = f"{settings.PROPELAUTH_URL}/api/backend/v1/validate_access_token"
         
         headers = {
             "Authorization": f"Bearer {settings.PROPELAUTH_API_KEY}",
@@ -444,7 +419,7 @@ async def handle_auth_callback(code: str = None, state: str = None, error: str =
             if access_token:
                 # Validate the token and get user info
                 from app.core.auth import auth
-                user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
+                user = auth.validate_access_token(access_token)
                 
                 if user:
                     # Create a simple session token for the frontend
@@ -504,7 +479,7 @@ async def validate_session(request_data: dict):
         access_token = session_data.get("access_token")
         if access_token:
             from app.core.auth import auth
-            user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
+            user = auth.validate_access_token(access_token)
             
             if user:
                 # Get user barn access
@@ -525,21 +500,6 @@ async def validate_session(request_data: dict):
             
     except Exception as e:
         logger.error(f"Session validation error: {str(e)}")
-        return {"success": False, "error": str(e)}
-
-@app.get("/api/v1/auth/session")
-async def get_current_session():
-    """Get current PropelAuth session if user is logged in"""
-    try:
-        # For hosted login, PropelAuth might set session cookies
-        # This is a simplified implementation - in production you'd check PropelAuth session cookies
-        
-        # For now, we'll return a not-found response since we can't easily detect PropelAuth session
-        # The frontend will fall back to user selection
-        return {"success": False, "error": "No active session found"}
-        
-    except Exception as e:
-        logger.error(f"Session check error: {str(e)}")
         return {"success": False, "error": str(e)}
 
 @app.get("/api/v1/horses/")

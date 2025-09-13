@@ -38,7 +38,7 @@ def get_current_user_optional(
         token = credentials.credentials
         
         # Validate the token and get user info using PropelAuth SDK
-        user = auth.validate_access_token_and_get_user(f"Bearer {token}")
+        user = auth.validate_access_token(token)
         
         if user:
             logger.info(f"Optional auth - authenticated user: {user.user_id}")
