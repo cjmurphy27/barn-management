@@ -98,8 +98,18 @@ class StreamlitAuth:
         if st.session_state.get('user_logged_out', False):
             return None
         
+        # Don't process callback if we've already processed it
+        if st.session_state.get('callback_processed', False):
+            return None
+        
         # Check for OAuth callback and process it
-        return self._process_oauth_callback()
+        token = self._process_oauth_callback()
+        
+        # Mark callback as processed to prevent loops
+        if token:
+            st.session_state.callback_processed = True
+        
+        return token
     
     def set_access_token(self, token: str):
         """Set access token in session state"""
@@ -220,6 +230,10 @@ class StreamlitAuth:
                 selected_user = st.selectbox("Select your account:", users)
                 
                 if st.button("Continue with Selected User"):
+                    # Clear the callback state to prevent loops
+                    if 'processing_propelauth_login' in st.session_state:
+                        del st.session_state.processing_propelauth_login
+                    
                     self._setup_demo_user(selected_user)
                     return "user_selected_token"
             
@@ -300,35 +314,37 @@ class StreamlitAuth:
 
     def _setup_demo_user(self, email: str):
         """Setup demo user with real barn data from backend"""
-        with st.spinner(f"Setting up demo login for {email}..."):
-            try:
-                # Fetch real user data from the backend
-                real_token = self._fetch_real_propelauth_user(email)
-                if real_token:
-                    if 'user_logged_out' in st.session_state:
-                        del st.session_state.user_logged_out
-                    
-                    st.session_state.access_token = real_token
-                    
-                    # Get the real user data that was stored
-                    if 'real_propelauth_user' in st.session_state:
-                        user_data = st.session_state.real_propelauth_user
-                        formatted_user = {
-                            "user_id": user_data.get("user_id"),
-                            "email": user_data.get("email"),
-                            "first_name": user_data.get("first_name"),
-                            "last_name": user_data.get("last_name"),
-                            "barns": user_data.get("organizations", [])
-                        }
-                        st.session_state.user = formatted_user
-                    
-                    st.success(f"✅ Logged in as {email}")
-                    st.rerun()
-                else:
-                    st.error(f"Failed to setup demo user for {email}")
-                    
-            except Exception as e:
-                st.error(f"Error setting up demo user: {str(e)}")
+        try:
+            # Fetch real user data from the backend
+            real_token = self._fetch_real_propelauth_user(email)
+            if real_token:
+                if 'user_logged_out' in st.session_state:
+                    del st.session_state.user_logged_out
+                
+                st.session_state.access_token = real_token
+                
+                # Get the real user data that was stored
+                if 'real_propelauth_user' in st.session_state:
+                    user_data = st.session_state.real_propelauth_user
+                    formatted_user = {
+                        "user_id": user_data.get("user_id"),
+                        "email": user_data.get("email"),
+                        "first_name": user_data.get("first_name"),
+                        "last_name": user_data.get("last_name"),
+                        "barns": user_data.get("organizations", [])
+                    }
+                    st.session_state.user = formatted_user
+                
+                # Mark callback as processed to prevent further processing
+                st.session_state.callback_processed = True
+                
+                st.success(f"✅ Logged in as {email}")
+                # Don't call st.rerun() here - let the page refresh naturally
+            else:
+                st.error(f"Failed to setup demo user for {email}")
+                
+        except Exception as e:
+            st.error(f"Error setting up demo user: {str(e)}")
 
     def clear_auth(self):
         """Clear authentication state"""
@@ -352,6 +368,8 @@ class StreamlitAuth:
             del st.session_state.processed_callback_id
         if "processing_callback" in st.session_state:
             del st.session_state.processing_callback
+        if "processing_propelauth_login" in st.session_state:
+            del st.session_state.processing_propelauth_login
         
         # Mark that user explicitly logged out
         st.session_state.user_logged_out = True
