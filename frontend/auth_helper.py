@@ -46,10 +46,10 @@ class StreamlitAuth:
             print(f"🔍 Environment check - RAILWAY_ENVIRONMENT_NAME: '{os.getenv('RAILWAY_ENVIRONMENT_NAME')}'")
             print(f"🔍 is_railway: {is_railway}")
             if is_railway:
-                redirect_uri = "https://web-production-10a5d.up.railway.app/"
+                redirect_uri = "https://web-production-10a5d.up.railway.app/oauth2callback"
                 print(f"🔍 Using Railway redirect URI: {redirect_uri}")
             else:
-                redirect_uri = "http://localhost:8000/"
+                redirect_uri = "http://localhost:8000/oauth2callback"
                 print(f"🔍 Using localhost redirect URI: {redirect_uri}")
         
         # Use PropelAuth's hosted login with redirect
@@ -151,7 +151,7 @@ class StreamlitAuth:
                 
                 # Determine the correct redirect URI that was used
                 is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
-                redirect_uri = "https://web-production-10a5d.up.railway.app/" if is_railway else "http://localhost:8000/"
+                redirect_uri = "https://web-production-10a5d.up.railway.app/oauth2callback" if is_railway else "http://localhost:8000/oauth2callback"
                 
                 # Exchange authorization code for access token via backend
                 response = requests.post(
