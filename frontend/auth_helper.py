@@ -44,10 +44,10 @@ class StreamlitAuth:
             # Check if we're on Railway
             is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
             if is_railway:
-                # PropelAuth dashboard shows it redirects to /auth/callback/ 
-                redirect_uri = "https://web-production-10a5d.up.railway.app/auth/callback/"
+                # PropelAuth actually redirects to /?auth=callback/
+                redirect_uri = "https://web-production-10a5d.up.railway.app/"
             else:
-                redirect_uri = "http://localhost:8501/auth/callback/"
+                redirect_uri = "http://localhost:8501/"
         
         # Mark that we're processing a PropelAuth login for callback detection
         st.session_state.processing_propelauth_login = True
@@ -211,11 +211,44 @@ class StreamlitAuth:
                 except Exception as e:
                     print(f"🔍 Error checking PropelAuth session: {str(e)}")
             
-            # Legacy fallback for older callback patterns
+            # PropelAuth callback with ?auth=callback/ pattern
             elif 'auth' in query_params and 'callback' in str(query_params['auth']):
-                print(f"🔍 Legacy callback detected - hosted login should provide direct user data")
+                print(f"🔍 PropelAuth callback detected via ?auth=callback/ pattern")
                 
-                # For now, show user selection as fallback
+                # Try to get user session from PropelAuth via backend
+                try:
+                    response = requests.get(
+                        f"{self.backend_url}/api/v1/auth/session",
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get("success") and result.get("user"):
+                            user_data = result.get("user", {})
+                            access_token = result.get("access_token", "hosted_login_token")
+                            email = user_data.get("email")
+                            
+                            print(f"🔍 Retrieved PropelAuth session for user: {email}")
+                            
+                            # Store user and token in session
+                            st.session_state.user = user_data
+                            st.session_state.access_token = access_token
+                            st.session_state.user_email = email
+                            st.session_state.processing_propelauth_login = False
+                            
+                            # Clear query parameters
+                            if hasattr(st, 'query_params'):
+                                st.query_params.clear()
+                            else:
+                                st.experimental_set_query_params()
+                            
+                            return access_token
+                        
+                except Exception as e:
+                    print(f"🔍 Error checking PropelAuth session: {str(e)}")
+                
+                # Fallback: show user selection if session retrieval fails
                 st.info("🔍 PropelAuth login detected. Please select your user below:")
                 
                 # Clear query parameters to prevent loops
