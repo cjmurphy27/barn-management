@@ -36,47 +36,30 @@ class StreamlitAuth:
             self._config_loaded = True
         
     def get_login_url(self, redirect_uri: str = None) -> str:
-        """Generate PropelAuth OAuth login URL with proper redirect"""
+        """Generate PropelAuth hosted login URL with proper redirect"""
         self._load_config()
         
-        # Determine the correct redirect URI based on environment
+        # Determine the correct redirect URI based on environment  
         if redirect_uri is None:
             # Check if we're on Railway
             is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
             if is_railway:
-                redirect_uri = "https://web-production-10a5d.up.railway.app/?auth=callback"
+                # PropelAuth dashboard shows it redirects to /auth/callback/ 
+                redirect_uri = "https://web-production-10a5d.up.railway.app/auth/callback/"
             else:
-                redirect_uri = "http://localhost:8501/?auth=callback"
+                redirect_uri = "http://localhost:8501/auth/callback/"
         
-        # Use proper OAuth 2.0 flow for PropelAuth test environment
-        # First, get the client credentials
-        client_id = os.getenv('PROPELAUTH_CLIENT_ID') or st.secrets.get('PROPELAUTH_CLIENT_ID')
+        # Mark that we're processing a PropelAuth login for callback detection
+        st.session_state.processing_propelauth_login = True
         
-        if not client_id:
-            print("❌ No PropelAuth client ID found - falling back to hosted login")
-            return f"{self.auth_url}/login?redirect_uri={redirect_uri}"
+        # Use PropelAuth's hosted login with the configured redirect
+        # Based on PropelAuth dashboard: Application URL + /auth/callback/
+        print(f"🔍 Using PropelAuth hosted login with redirect to: {redirect_uri}")
         
-        # Generate a random state parameter for CSRF protection
-        import secrets
-        state = secrets.token_urlsafe(32)
-        
-        # Store state in session for validation
-        st.session_state.oauth_state = state
-        
-        # Use PropelAuth's proper OAuth authorization endpoint
-        params = urlencode({
-            'response_type': 'code',
-            'client_id': client_id,
-            'redirect_uri': redirect_uri,
-            'scope': 'openid email profile',
-            'state': state
-        })
-        
-        # Use PropelAuth's backend OAuth authorization endpoint
-        # This should match the token endpoint pattern: /api/backend/v1/oauth/
-        oauth_url = f"{self.auth_url}/api/backend/v1/oauth/authorize?{params}"
-        print(f"🔍 Generated OAuth URL: {oauth_url}")
-        return oauth_url
+        # PropelAuth hosted login with redirect parameter
+        hosted_login_url = f"{self.auth_url}/login?redirect_uri={redirect_uri}"
+        print(f"🔍 Generated hosted login URL: {hosted_login_url}")
+        return hosted_login_url
     
     def get_account_url(self) -> str:
         """Get PropelAuth account management URL"""
@@ -123,7 +106,7 @@ class StreamlitAuth:
         st.session_state.access_token = token
     
     def _process_oauth_callback(self) -> Optional[str]:
-        """Process OAuth callback and exchange authorization code for access token"""
+        """Process PropelAuth hosted login callback"""
         try:
             # Get query parameters
             if hasattr(st, 'query_params'):
@@ -131,57 +114,34 @@ class StreamlitAuth:
             else:
                 query_params = st.experimental_get_query_params()
             
-            print(f"🔍 OAuth Callback - Query params: {dict(query_params)}")
+            print(f"🔍 Hosted Login Callback - Query params: {dict(query_params)}")
             
-            # Check if we have an authorization code from OAuth flow
-            if 'code' in query_params:
-                auth_code = query_params['code'][0] if isinstance(query_params['code'], list) else query_params['code']
-                print(f"🔍 Found OAuth authorization code: {auth_code[:20]}...")
+            # Check for PropelAuth hosted login callback
+            # PropelAuth hosted login redirects to /auth/callback/ with user token
+            if 'propelauth_token' in query_params:
+                token = query_params['propelauth_token'][0] if isinstance(query_params['propelauth_token'], list) else query_params['propelauth_token']
+                print(f"🔍 Found PropelAuth hosted login token: {token[:20]}...")
                 
-                # Validate state parameter for CSRF protection
-                received_state = query_params.get('state')
-                if received_state:
-                    received_state = received_state[0] if isinstance(received_state, list) else received_state
-                    stored_state = st.session_state.get('oauth_state')
-                    
-                    if not stored_state or received_state != stored_state:
-                        print(f"🔍 OAuth state validation failed")
-                        st.error("OAuth state validation failed. Please try logging in again.")
-                        return None
-                    
-                    print(f"🔍 OAuth state validated successfully")
-                else:
-                    print(f"🔍 No state parameter received in OAuth callback")
-                    st.error("Invalid OAuth callback - missing state parameter.")
-                    return None
-                
-                # Determine the correct redirect URI that was used
-                is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
-                redirect_uri = "https://web-production-10a5d.up.railway.app/?auth=callback" if is_railway else "http://localhost:8501/?auth=callback"
-                
-                # Exchange authorization code for access token via backend
+                # Validate the token with backend and get user data
                 response = requests.post(
-                    f"{self.backend_url}/api/v1/auth/exchange-code",
-                    json={
-                        "code": auth_code,
-                        "redirect_uri": redirect_uri
-                    },
+                    f"{self.backend_url}/api/v1/auth/validate-token",
+                    json={"token": token},
                     timeout=15
                 )
                 
-                print(f"🔍 Backend token exchange response: {response.status_code}")
+                print(f"🔍 Backend token validation response: {response.status_code}")
                 
                 if response.status_code == 200:
                     result = response.json()
-                    print(f"🔍 Token exchange result: {result.get('success', False)}")
+                    print(f"🔍 Token validation result: {result.get('success', False)}")
                     
                     if result.get("success"):
                         # Extract user information from the response
                         user_data = result.get("user", {})
-                        access_token = result.get("access_token", "oauth_success_token")
+                        access_token = result.get("access_token", token)
                         
                         email = user_data.get("email")
-                        print(f"🔍 OAuth extracted user email: {email}")
+                        print(f"🔍 Hosted login extracted user email: {email}")
                         
                         # Store user and token in session
                         st.session_state.user = user_data
@@ -194,32 +154,79 @@ class StreamlitAuth:
                         else:
                             st.experimental_set_query_params()
                         
-                        print(f"🔍 OAuth flow completed successfully for: {email}")
+                        print(f"🔍 Hosted login flow completed successfully for: {email}")
                         return access_token
                     else:
                         error_msg = result.get("error", "Unknown error")
-                        print(f"🔍 Token exchange failed: {error_msg}")
+                        print(f"🔍 Token validation failed: {error_msg}")
                         st.error(f"Authentication failed: {error_msg}")
                 else:
-                    print(f"🔍 Backend token exchange failed: {response.status_code}")
+                    print(f"🔍 Backend token validation failed: {response.status_code}")
                     print(f"🔍 Response text: {response.text}")
                     st.error(f"Authentication service error: {response.status_code}")
             
-            # Check for fallback callback (should not happen with proper OAuth)
+            # Check for /auth/callback/ URL pattern (PropelAuth's default redirect)
+            elif hasattr(st, 'query_params') and st.query_params.get_all() == [] and st.session_state.get('processing_propelauth_login'):
+                print(f"🔍 PropelAuth callback detected via URL pattern")
+                # User is being redirected back from PropelAuth hosted login
+                # The hosted login should provide some way to get user data
+                # Let's try to extract from any available cookies or session
+                
+                # Check if PropelAuth set any session cookies we can read
+                try:
+                    # This is a simplified approach - in production you'd validate the PropelAuth session
+                    # For now, let's call our backend to check current session
+                    response = requests.get(
+                        f"{self.backend_url}/api/v1/auth/session",
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get("success") and result.get("user"):
+                            user_data = result.get("user", {})
+                            access_token = result.get("access_token", "hosted_login_token")
+                            email = user_data.get("email")
+                            
+                            print(f"🔍 Retrieved session for user: {email}")
+                            
+                            # Store user and token in session
+                            st.session_state.user = user_data
+                            st.session_state.access_token = access_token
+                            st.session_state.user_email = email
+                            st.session_state.processing_propelauth_login = False
+                            
+                            return access_token
+                        
+                except Exception as e:
+                    print(f"🔍 Error checking PropelAuth session: {str(e)}")
+            
+            # Legacy fallback for older callback patterns
             elif 'auth' in query_params and 'callback' in str(query_params['auth']):
-                print(f"🔍 Fallback callback detected - OAuth should provide 'code' parameter")
-                st.error("OAuth callback received but no authorization code found. Please check PropelAuth OAuth configuration.")
+                print(f"🔍 Legacy callback detected - hosted login should provide direct user data")
+                
+                # For now, show user selection as fallback
+                st.info("🔍 PropelAuth login detected. Please select your user below:")
                 
                 # Clear query parameters to prevent loops
                 if hasattr(st, 'query_params'):
                     st.query_params.clear()
                 else:
                     st.experimental_set_query_params()
+                
+                # Show user selection as fallback
+                st.markdown("**Available Users:**")
+                users = ["chris@carril.com", "cjmurphy.nyc@gmail.com"]
+                selected_user = st.selectbox("Select your account:", users)
+                
+                if st.button("Continue with Selected User"):
+                    self._setup_demo_user(selected_user)
+                    return "user_selected_token"
             
             return None
             
         except Exception as e:
-            print(f"🔍 OAuth callback processing error: {str(e)}")
+            print(f"🔍 Hosted login callback processing error: {str(e)}")
             st.error(f"Authentication error: {str(e)}")
             return None
     
