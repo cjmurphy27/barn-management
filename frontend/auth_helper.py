@@ -46,7 +46,7 @@ class StreamlitAuth:
             if is_railway:
                 redirect_uri = "https://web-production-10a5d.up.railway.app/"
             else:
-                redirect_uri = "http://localhost:8501/"
+                redirect_uri = "http://localhost:8000/"
         
         # Generate a random state parameter for CSRF protection
         import secrets
@@ -170,7 +170,7 @@ class StreamlitAuth:
                 
                 # Determine the correct redirect URI that was used
                 is_railway = os.getenv('RAILWAY_ENVIRONMENT_NAME') is not None
-                redirect_uri = "https://web-production-10a5d.up.railway.app/" if is_railway else "http://localhost:8501/"
+                redirect_uri = "https://web-production-10a5d.up.railway.app/" if is_railway else "http://localhost:8000/"
                 
                 # Exchange authorization code for access token via backend
                 response = requests.post(
