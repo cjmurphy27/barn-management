@@ -91,6 +91,7 @@ class StreamlitAuth:
 
     def get_access_token(self) -> Optional[str]:
         """Get access token from session or process OAuth callback"""
+        print(f"🔍 get_access_token() called")
         # First check session state
         if "access_token" in st.session_state and st.session_state.access_token:
             return st.session_state.access_token
@@ -104,7 +105,9 @@ class StreamlitAuth:
             return None
         
         # Check for OAuth callback and process it
+        print(f"🔍 About to call _process_oauth_callback()")
         token = self._process_oauth_callback()
+        print(f"🔍 _process_oauth_callback() returned: {token}")
         
         # Mark callback as processed to prevent loops
         if token:
@@ -126,6 +129,10 @@ class StreamlitAuth:
                 query_params = st.experimental_get_query_params()
             
             print(f"🔍 Hosted Login Callback - Query params: {dict(query_params)}")
+            print(f"🔍 Query param keys: {list(query_params.keys())}")
+            print(f"🔍 URL contains 'code'?: {'code' in query_params}")
+            print(f"🔍 URL contains 'auth'?: {'auth' in query_params}")
+            print(f"🔍 Current URL: {st.experimental_get_query_params() if hasattr(st, 'experimental_get_query_params') else 'N/A'}")
             
             # Check if we have an authorization code from OAuth2 flow
             if 'code' in query_params:
