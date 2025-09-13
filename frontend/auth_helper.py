@@ -446,7 +446,35 @@ class StreamlitAuth:
         # Debug info for development
         with st.expander("🔧 Debug Info", expanded=False):
             st.write(f"**Login URL**: {login_url}")
-            st.write("**Flow**: PropelAuth OAuth → Authorization Code → Backend Token Exchange → User Data")
+            st.write("**Flow**: PropelAuth Hosted Login → Token Validation → User Data")
+            st.write(f"**Backend URL**: {self.backend_url}")
+            
+            # Test backend connection
+            try:
+                import requests
+                response = requests.get(f"{self.backend_url}/health", timeout=5)
+                if response.status_code == 200:
+                    st.success("✅ Backend connection healthy")
+                else:
+                    st.error(f"❌ Backend returned {response.status_code}")
+            except Exception as e:
+                st.error(f"❌ Backend connection failed: {str(e)}")
+            
+            # Test auth endpoint
+            try:
+                response = requests.post(
+                    f"{self.backend_url}/api/v1/auth/validate-token",
+                    json={"token": "test"},
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    st.info("🔒 Auth endpoint responding (test token rejected as expected)")
+                elif response.status_code == 403:
+                    st.warning("🔒 Auth endpoint blocked - PropelAuth environment variables may be missing")
+                else:
+                    st.warning(f"🔒 Auth endpoint returned {response.status_code}")
+            except Exception as e:
+                st.error(f"❌ Auth endpoint test failed: {str(e)}")
 
     def show_login_button(self, text: str = "Login with PropelAuth"):
         """Show login button that redirects to PropelAuth"""
