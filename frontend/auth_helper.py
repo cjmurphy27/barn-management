@@ -215,41 +215,58 @@ class StreamlitAuth:
             elif 'auth' in query_params and 'callback' in str(query_params['auth']):
                 print(f"🔍 PropelAuth callback detected via ?auth=callback/ pattern")
                 
-                # Try to get user session from PropelAuth via backend
-                try:
-                    response = requests.get(
-                        f"{self.backend_url}/api/v1/auth/session",
-                        timeout=10
-                    )
+                # Show debug info about what we received
+                st.info("🔍 PropelAuth callback detected!")
+                with st.expander("Debug: Callback Details", expanded=True):
+                    st.write("Query parameters received:", dict(query_params))
                     
-                    if response.status_code == 200:
-                        result = response.json()
-                        if result.get("success") and result.get("user"):
-                            user_data = result.get("user", {})
-                            access_token = result.get("access_token", "hosted_login_token")
-                            email = user_data.get("email")
-                            
-                            print(f"🔍 Retrieved PropelAuth session for user: {email}")
-                            
-                            # Store user and token in session
-                            st.session_state.user = user_data
-                            st.session_state.access_token = access_token
-                            st.session_state.user_email = email
-                            st.session_state.processing_propelauth_login = False
-                            
-                            # Clear query parameters
-                            if hasattr(st, 'query_params'):
-                                st.query_params.clear()
-                            else:
-                                st.experimental_set_query_params()
-                            
-                            return access_token
+                    # Try to get user session from PropelAuth via backend
+                    st.write("Attempting to retrieve session from backend...")
+                    try:
+                        response = requests.get(
+                            f"{self.backend_url}/api/v1/auth/session",
+                            timeout=10
+                        )
                         
-                except Exception as e:
-                    print(f"🔍 Error checking PropelAuth session: {str(e)}")
+                        st.write(f"Backend response status: {response.status_code}")
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            st.write("Backend response:", result)
+                            
+                            if result.get("success") and result.get("user"):
+                                user_data = result.get("user", {})
+                                access_token = result.get("access_token", "hosted_login_token")
+                                email = user_data.get("email")
+                                
+                                print(f"🔍 Retrieved PropelAuth session for user: {email}")
+                                st.success(f"✅ Successfully retrieved user: {email}")
+                                
+                                # Store user and token in session
+                                st.session_state.user = user_data
+                                st.session_state.access_token = access_token
+                                st.session_state.user_email = email
+                                st.session_state.processing_propelauth_login = False
+                                
+                                # Clear query parameters
+                                if hasattr(st, 'query_params'):
+                                    st.query_params.clear()
+                                else:
+                                    st.experimental_set_query_params()
+                                
+                                return access_token
+                            else:
+                                st.warning("Backend response did not contain valid user data")
+                        else:
+                            st.error(f"Backend session endpoint failed: {response.status_code}")
+                            if response.text:
+                                st.code(response.text[:500])
+                            
+                    except Exception as e:
+                        st.error(f"Error checking PropelAuth session: {str(e)}")
                 
                 # Fallback: show user selection if session retrieval fails
-                st.info("🔍 PropelAuth login detected. Please select your user below:")
+                st.info("🔍 Falling back to user selection:")
                 
                 # Clear query parameters to prevent loops
                 if hasattr(st, 'query_params'):
