@@ -219,6 +219,60 @@ class StreamlitAuth:
                 st.info("🔍 PropelAuth callback detected!")
                 with st.expander("Debug: Callback Details", expanded=True):
                     st.write("Query parameters received:", dict(query_params))
+                    st.write("All query parameter keys:", list(query_params.keys()))
+                    
+                    # Check for other possible token parameter names
+                    possible_tokens = ['token', 'access_token', 'propelauth_token', 'jwt', 'bearer']
+                    for token_name in possible_tokens:
+                        if token_name in query_params:
+                            token_value = query_params[token_name][0] if isinstance(query_params[token_name], list) else query_params[token_name]
+                            st.success(f"Found {token_name}: {token_value[:50]}...")
+                            
+                            # Try to validate this token with the backend
+                            st.write(f"Attempting to validate {token_name} with backend...")
+                            try:
+                                response = requests.post(
+                                    f"{self.backend_url}/api/v1/auth/validate-token",
+                                    json={"token": token_value},
+                                    timeout=15
+                                )
+                                
+                                st.write(f"Token validation response: {response.status_code}")
+                                if response.status_code == 200:
+                                    result = response.json()
+                                    st.write("Validation result:", result)
+                                    
+                                    if result.get("success"):
+                                        # Token is valid! Store user data and complete authentication
+                                        user_data = result.get("user", {})
+                                        access_token = result.get("access_token", token_value)
+                                        email = user_data.get("email")
+                                        
+                                        st.success(f"✅ Successfully authenticated user: {email}")
+                                        
+                                        # Store user and token in session
+                                        st.session_state.user = user_data
+                                        st.session_state.access_token = access_token
+                                        st.session_state.user_email = email
+                                        st.session_state.processing_propelauth_login = False
+                                        
+                                        # Clear query parameters
+                                        if hasattr(st, 'query_params'):
+                                            st.query_params.clear()
+                                        else:
+                                            st.experimental_set_query_params()
+                                        
+                                        return access_token
+                                else:
+                                    st.error(f"Token validation failed: {response.status_code}")
+                                    if response.text:
+                                        st.code(response.text[:300])
+                                        
+                            except Exception as e:
+                                st.error(f"Error validating token: {str(e)}")
+                    
+                    if not any(param in query_params for param in possible_tokens):
+                        st.warning("No token parameters found in callback URL")
                     
                     # Try to get user session from PropelAuth via backend
                     st.write("Attempting to retrieve session from backend...")
