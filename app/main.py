@@ -60,6 +60,19 @@ async def startup_event():
 async def health_check():
     return {"status": "healthy", "database": "connected", "version": "2.0.0"}
 
+@app.get("/debug/env")
+async def debug_environment():
+    """Debug endpoint to check environment variables (temporary)"""
+    import os
+    return {
+        "propelauth_url_set": bool(os.getenv("PROPELAUTH_URL")),
+        "propelauth_api_key_set": bool(os.getenv("PROPELAUTH_API_KEY")),
+        "propelauth_verifier_key_set": bool(os.getenv("PROPELAUTH_VERIFIER_KEY")),
+        "railway_env": bool(os.getenv("RAILWAY_ENVIRONMENT_NAME")),
+        "propelauth_url_value": os.getenv("PROPELAUTH_URL", "not_set")[:50] if os.getenv("PROPELAUTH_URL") else "not_set",
+        "settings_loaded": bool(settings.PROPELAUTH_URL and settings.PROPELAUTH_API_KEY)
+    }
+
 @app.get("/api/v1/auth/user")
 async def get_user_info(user = Depends(get_current_user)):
     """Get current user information and barn access"""
