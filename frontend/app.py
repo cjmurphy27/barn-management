@@ -295,6 +295,42 @@ def api_request(method: str, endpoint: str, data: dict = None) -> dict:
         st.error(f"API Error: {str(e)}")
         return {}
 
+def api_request_with_conflict_handling(method: str, endpoint: str, data: dict = None) -> dict:
+    """Make API request that handles 409 conflicts gracefully for inventory operations"""
+    url = f"{API_BASE_URL}{endpoint}"
+    
+    # Get authentication token
+    token = auth.get_access_token()
+    headers = {}
+    
+    # Add authorization header if we have a real token (not demo token)
+    if token and token != "demo_token_from_callback":
+        headers["Authorization"] = f"Bearer {token}"
+    
+    try:
+        if method.upper() == "GET":
+            response = requests.get(url, params=data, headers=headers)
+        elif method.upper() == "POST":
+            response = requests.post(url, json=data, headers=headers)
+        elif method.upper() == "PUT":
+            response = requests.put(url, json=data, headers=headers)
+        elif method.upper() == "DELETE":
+            response = requests.delete(url, headers=headers)
+        
+        response.raise_for_status()
+        return response.json() if response.content else {}
+    
+    except requests.exceptions.HTTPError as e:
+        # Handle 409 conflicts silently (item already exists)
+        if e.response.status_code == 409:
+            return None  # Signal that item already exists
+        else:
+            st.error(f"API Error: {str(e)}")
+            return {}
+    except requests.exceptions.RequestException as e:
+        st.error(f"API Error: {str(e)}")
+        return {}
+
 def format_date(date_obj) -> str:
     """Format date for display"""
     if isinstance(date_obj, str):
@@ -468,8 +504,16 @@ def show_authenticated_app():
         except:
             pass
         
+        # Check for force AI page navigation
+        if st.session_state.get('force_ai_page', False):
+            current_page = "🤖 AI Assistant"
+            # Clear the flag after using it
+            del st.session_state['force_ai_page']
+        # Check if we have an active AI context (should stay on AI Assistant page)
+        elif 'ai_horse_id' in st.session_state and st.session_state.ai_horse_id:
+            current_page = "🤖 AI Assistant"
         # Check if we're in a specific horse context to determine current page
-        if 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
+        elif 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
             if 'edit_mode' in st.session_state and st.session_state.edit_mode:
                 current_page = "Edit Horse"
             else:
@@ -708,11 +752,8 @@ def show_horse_directory():
                         # Set AI context for the horse and navigate to AI page
                         st.session_state['ai_horse_id'] = horse['id']
                         st.session_state['ai_horse_name'] = horse['name']
-                        # Force navigation to AI page by using experimental_set_query_params
-                        try:
-                            st.experimental_set_query_params(page="ai", horse_id=horse['id'])
-                        except:
-                            pass
+                        # Set force AI page flag for navigation
+                        st.session_state['force_ai_page'] = True
                         st.rerun()
 
 def show_ai_assistant():
@@ -1004,9 +1045,14 @@ def show_horse_profile():
                 # Set AI context for current horse
                 st.session_state['ai_horse_id'] = horse_id
                 st.session_state['ai_horse_name'] = horse['name']
-                # Keep selected_horse_id - we need navigation to switch to AI Assistant
-                # User can use navigation dropdown to get to AI Assistant page
-                st.success("AI context set! Use the navigation dropdown to go to AI Assistant.")
+                # Clear horse profile context to allow navigation to AI page
+                if 'selected_horse_id' in st.session_state:
+                    del st.session_state['selected_horse_id']
+                if 'edit_mode' in st.session_state:
+                    del st.session_state['edit_mode']
+                # Set a flag to force AI Assistant page
+                st.session_state['force_ai_page'] = True
+                st.rerun()
     
     st.divider()
     
@@ -3009,6 +3055,9 @@ def show_receipt_scanner():
                     # Add all items button
                     if st.button("📦 Add All Items to Inventory"):
                         success_count = 0
+                        error_count = 0
+                        updated_count = 0
+                        
                         for item in items:
                             # Map package_size to proper unit_type
                             package_size = item.get('package_size', 'each').lower()
@@ -3042,20 +3091,71 @@ def show_receipt_scanner():
                                 "last_cost_per_unit": item.get('unit_price') or item.get('total_price')
                             }
                             
-                            # Add to inventory with organization context
+                            # First, try to create new supply item
                             endpoint = "/api/v1/supplies/"
                             if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
                                 endpoint = f"/api/v1/supplies/?organization_id={st.session_state.selected_barn_id}"
                             
-                            add_result = api_request("POST", endpoint, supply_data)
+                            # Use specialized API request that handles 409 conflicts gracefully
+                            add_result = api_request_with_conflict_handling("POST", endpoint, supply_data)
+                            
                             if add_result:
+                                # New item created successfully
                                 success_count += 1
+                            elif add_result is None:
+                                # Item might already exist, try to find it and add stock
+                                # Get existing supplies to find matching item
+                                search_endpoint = "/api/v1/supplies/"
+                                if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                                    search_endpoint = f"/api/v1/supplies/?organization_id={st.session_state.selected_barn_id}"
+                                
+                                existing_supplies = api_request("GET", search_endpoint, {"search": item.get('description', '')})
+                                
+                                # Find matching supply by name and category
+                                matching_supply = None
+                                if existing_supplies:
+                                    for existing in existing_supplies:
+                                        if (existing.get('name', '').lower() == supply_data['name'].lower() and 
+                                            existing.get('category', '').lower() == supply_data['category'].lower()):
+                                            matching_supply = existing
+                                            break
+                                
+                                if matching_supply:
+                                    # Add stock using stock movement
+                                    movement_data = {
+                                        "supply_id": matching_supply['id'],
+                                        "quantity_change": item.get('quantity', 1),
+                                        "movement_type": "purchase",
+                                        "reason": "Receipt upload",
+                                        "unit_cost": item.get('unit_price') or item.get('total_price')
+                                    }
+                                    
+                                    movement_result = api_request("POST", "/api/v1/supplies/stock-movements", movement_data)
+                                    if movement_result:
+                                        updated_count += 1
+                                    else:
+                                        error_count += 1
+                                else:
+                                    error_count += 1
+                            else:
+                                # Other API error occurred
+                                error_count += 1
                         
-                        if success_count > 0:
+                        # Show results
+                        if success_count > 0 or updated_count > 0:
                             st.balloons()
-                            st.success(f"✅ Added {success_count} items to inventory!")
-                        else:
-                            st.error("Failed to add items to inventory")
+                            message_parts = []
+                            if success_count > 0:
+                                message_parts.append(f"{success_count} new items added")
+                            if updated_count > 0:
+                                message_parts.append(f"{updated_count} existing items updated")
+                            st.success(f"✅ {' and '.join(message_parts)} to inventory!")
+                        
+                        if error_count > 0:
+                            st.warning(f"⚠️ {error_count} items could not be processed")
+                        
+                        if success_count == 0 and updated_count == 0:
+                            st.error("Failed to add any items to inventory")
                 else:
                     st.warning("No items found in receipt")
 
