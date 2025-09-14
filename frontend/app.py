@@ -710,7 +710,7 @@ def show_horse_directory():
             col = cols[idx % num_cols]
             
             with col:
-                # Horse Card
+                # Horse Card with optional background image
                 status_color = {
                     "Excellent": "🟢",
                     "Good": "🟢", 
@@ -719,17 +719,76 @@ def show_horse_directory():
                     "Critical": "🔴"
                 }.get(horse.get('current_health_status', 'Good'), "⚪")
                 
-                st.markdown(f"""
-                <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin: 10px 0; background-color: white;">
-                    <h4>{horse.get('name', 'Unknown')} <span class="health-emoji">{status_color}</span></h4>
-                    <p><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
-                    <p><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
-                    <p><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
-                    <p><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
-                    <p><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
-                    <p><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                # Check for profile photo and handle safely
+                profile_photo = horse.get('profile_photo_path')
+                has_background = False
+                
+                if profile_photo and profile_photo.strip():  # Check if not empty or just whitespace
+                    import os
+                    import base64
+                    try:
+                        # Check if file exists and is readable
+                        if os.path.exists(profile_photo) and os.path.isfile(profile_photo):
+                            with open(profile_photo, "rb") as img_file:
+                                img_data = base64.b64encode(img_file.read()).decode()
+                                img_extension = profile_photo.split('.')[-1].lower()
+                                mime_type = f"image/{img_extension}" if img_extension in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else "image/jpeg"
+                                
+                                # Render with background image using HTML
+                                background_style = f"""
+                                    background-image: url('data:{mime_type};base64,{img_data}');
+                                    background-size: cover;
+                                    background-position: center;
+                                    background-repeat: no-repeat;
+                                    position: relative;
+                                """
+                                overlay_style = """
+                                    background: linear-gradient(to bottom,
+                                        rgba(255,255,255,0.85) 0%,
+                                        rgba(255,255,255,0.75) 60%,
+                                        rgba(255,255,255,0.45) 100%);
+                                    position: absolute;
+                                    top: 0;
+                                    left: 0;
+                                    right: 0;
+                                    bottom: 0;
+                                    border-radius: 10px;
+                                """
+                                card_style = f"border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin: 10px 0; min-height: 250px; {background_style}"
+                                
+                                st.markdown(f"""
+                                <div style="{card_style}">
+                                    <div style="{overlay_style}"></div>
+                                    <div style="position: relative; z-index: 1; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">
+                                        <h4 style="text-shadow: 1px 1px 3px rgba(0,0,0,0.4);">{horse.get('name', 'Unknown')} <span class="health-emoji">{status_color}</span></h4>
+                                        <p><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
+                                        <p><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
+                                        <p><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
+                                        <p><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
+                                        <p><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
+                                        <p><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                has_background = True
+                    except Exception as e:
+                        # Silently handle any image loading errors
+                        has_background = False
+                
+                # If no background image, use native Streamlit components
+                if not has_background:
+                    with st.container():
+                        st.markdown(f"""
+                        <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin: 10px 0; min-height: 250px; background-color: white;">
+                            <h4>{horse.get('name', 'Unknown')} <span class="health-emoji">{status_color}</span></h4>
+                            <p><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
+                            <p><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
+                            <p><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
+                            <p><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
+                            <p><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
+                            <p><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # Action buttons
                 col_btn1, col_btn2, col_btn3 = st.columns(3)
