@@ -1,4 +1,4 @@
-from propelauth_py import init_base_auth
+from propelauth_py import init_base_auth, TokenVerificationMetadata, UnauthorizedException
 from propelauth_py.user import User
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -10,14 +10,10 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Initialize PropelAuth
+# Initialize PropelAuth - let it auto-configure token verification metadata
 auth = init_base_auth(
     auth_url=settings.PROPELAUTH_URL,
-    integration_api_key=settings.PROPELAUTH_API_KEY,
-    token_verification_metadata={
-        "verifier_key": settings.PROPELAUTH_VERIFIER_KEY,
-        "issuer": settings.PROPELAUTH_URL,
-    }
+    integration_api_key=settings.PROPELAUTH_API_KEY
 )
 
 security = HTTPBearer(auto_error=False)
@@ -38,14 +34,17 @@ def get_current_user_optional(
         token = credentials.credentials
         
         # Validate the token and get user info using PropelAuth SDK
-        user = auth.validate_access_token(token)
+        user = auth.validate_access_token_and_get_user(f"Bearer {token}")
         
         if user:
             logger.info(f"Optional auth - authenticated user: {user.user_id}")
         return user
         
+    except UnauthorizedException as e:
+        logger.warning(f"Invalid access token: {str(e)}")
+        return None
     except Exception as e:
-        logger.warning(f"Optional authentication failed: {str(e)}")
+        logger.error(f"Token validation error: {str(e)}")
         return None
 
 def get_current_user(
@@ -97,29 +96,56 @@ def require_org_role(org_id: str, required_role: str):
         return user
     return _require_org_role
 
-def get_user_organizations(user: User) -> list:
+def get_user_organizations(user) -> list:
     """
     Get all organizations (barns) the user belongs to
     """
-    return [org for org in user.org_id_to_org_info.values()]
+    # Handle custom user data dictionary (from JWT parsing)
+    if isinstance(user, dict) and "organizations" in user:
+        return user["organizations"]
 
-def get_user_barn_access(user: User) -> list:
+    # Handle PropelAuth User object
+    if hasattr(user, 'org_id_to_org_info'):
+        return [org for org in user.org_id_to_org_info.values()]
+    elif hasattr(user, 'org_id_to_org_member_info'):
+        return [org for org in user.org_id_to_org_member_info.values()]
+
+    # Fallback
+    return []
+
+def get_user_barn_access(user) -> list:
     """
     Get all barns (organizations) the user has access to
     This will be our main function for multi-barn access control
     """
     organizations = get_user_organizations(user)
-    
-    # Convert organizations to barn access info
+
+    # If organizations is already in the proper format (from JWT parsing), return it
+    if organizations and isinstance(organizations[0], dict) and "barn_id" in organizations[0]:
+        user_id = user.get("user_id") if isinstance(user, dict) else getattr(user, "user_id", "unknown")
+        logger.info(f"User {user_id} has access to {len(organizations)} barns")
+        return organizations
+
+    # Convert PropelAuth organization objects to barn access info
     barns = []
     for org in organizations:
-        barn_info = {
-            "barn_id": org.org_id,
-            "barn_name": org.org_name,
-            "user_role": org.user_role,
-            "permissions": org.user_permissions
-        }
+        # Handle both dict and object formats
+        if isinstance(org, dict):
+            barn_info = {
+                "barn_id": org.get("org_id"),
+                "barn_name": org.get("org_name"),
+                "user_role": org.get("user_role"),
+                "permissions": org.get("user_permissions", [])
+            }
+        else:
+            barn_info = {
+                "barn_id": org.org_id,
+                "barn_name": org.org_name,
+                "user_role": org.user_role,
+                "permissions": org.user_permissions
+            }
         barns.append(barn_info)
-    
-    logger.info(f"User {user.user_id} has access to {len(barns)} barns")
+
+    user_id = user.get("user_id") if isinstance(user, dict) else getattr(user, "user_id", "unknown")
+    logger.info(f"User {user_id} has access to {len(barns)} barns")
     return barns

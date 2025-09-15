@@ -21,13 +21,14 @@ st.markdown("""
 <style>
 /* CSS Version 3.1 - Clean sidebar with beige background and better navigation */
 
-/* Beige/cream sidebar background */
+/* Modern clean white sidebar with subtle border */
 section[data-testid="stSidebar"] {
-    background-color: #F5F2E8 !important;
+    background-color: #FFFFFF !important;
+    border-right: 1px solid #E5E7EB !important;
 }
 
 section[data-testid="stSidebar"] > div {
-    background-color: #F5F2E8 !important;
+    background-color: #FFFFFF !important;
 }
 
 /* Clean styling for sidebar text */
@@ -36,22 +37,22 @@ section[data-testid="stSidebar"] .stSelectbox label,
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {
-    color: #5D4037 !important;
+    color: #000000 !important;
 }
 
 /* Style the selectbox dropdowns consistently */
 section[data-testid="stSidebar"] .stSelectbox > div > div {
     background-color: white !important;
-    border: 1px solid #D2691E !important;
+    border: 1px solid #4A90E2 !important;
     border-radius: 8px !important;
 }
 
 /* Style info boxes and alerts in sidebar */
 section[data-testid="stSidebar"] .stAlert {
-    background-color: rgba(210, 105, 30, 0.1) !important;
-    border: 1px solid #D2691E !important;
+    background-color: rgba(74, 144, 226, 0.1) !important;
+    border: 1px solid #4A90E2 !important;
     border-radius: 8px !important;
-    color: #5D4037 !important;
+    color: #0052a4 !important;
 }
 
 /* Style buttons in sidebar - FORCE logout button to be orange */
@@ -346,14 +347,19 @@ def format_date(date_obj) -> str:
 def show_authenticated_app():
     """Show the full application for authenticated users"""
     
-    # Custom CSS for Barn Lady color theme
+    # Custom CSS for Modern Professional Theme
     st.markdown("""
     <style>
-    /* Logo colors: Brown (#5D4037), Orange (#FF8A50), Sage Green (#A5B68D), Cream (#F5F2E8) */
-    
+    /* Modern color scheme: Navy Blue (#0052a4), Light Blue (#4A90E2), Clean White (#FFFFFF), Light Gray (#F8F9FA) */
+
     /* Main app styling */
     .main > div {
-        background-color: #F5F2E8;
+        background-color: #FFFFFF;
+    }
+
+    /* App background */
+    .stApp {
+        background-color: #F8F9FA;
     }
     
     /* Primary buttons - Barn Lady Orange */
@@ -372,14 +378,14 @@ def show_authenticated_app():
     /* Secondary buttons - Sage Green */
     .stButton > button:not([kind="primary"]) {
         background-color: #A5B68D !important;
-        color: #5D4037 !important;
+        color: #000000 !important;
         border: 1px solid #8FA876 !important;
         border-radius: 8px !important;
     }
     
     .stButton > button:not([kind="primary"]):hover {
         background-color: #8FA876 !important;
-        color: #5D4037 !important;
+        color: #000000 !important;
     }
     
     /* Sidebar styling - slightly darker cream */
@@ -394,7 +400,7 @@ def show_authenticated_app():
     
     /* Headers */
     h1, h2, h3 {
-        color: #5D4037 !important;
+        color: #000000 !important;
     }
     
     /* Cards and containers - Warm off-white */
@@ -406,15 +412,39 @@ def show_authenticated_app():
         border-radius: 5px;
     }
     
-    /* Success messages - matching sage green */
+    /* Modern alert styling */
     .stAlert > div {
-        background-color: #A5B68D;
-        color: #5D4037;
+        background-color: #f8f9fa !important;
+        border: none !important;
+        border-left: 4px solid #4A90E2 !important;
+        border-radius: 8px !important;
+        color: #000000 !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        padding: 16px 20px !important;
     }
-    
-    /* Info messages - matching sage green but lighter */  
-    .stAlert[data-baseweb="notification"] {
-        background-color: #F5F2E8;
+
+    /* Success alerts */
+    .stAlert[data-baseweb="notification"][kind="success"] > div {
+        border-left-color: #28a745 !important;
+        background-color: #f8fff9 !important;
+    }
+
+    /* Warning alerts */
+    .stAlert[data-baseweb="notification"][kind="warning"] > div {
+        border-left-color: #ffc107 !important;
+        background-color: #fffef8 !important;
+    }
+
+    /* Error alerts */
+    .stAlert[data-baseweb="notification"][kind="error"] > div {
+        border-left-color: #dc3545 !important;
+        background-color: #fff8f8 !important;
+    }
+
+    /* Info alerts */
+    .stAlert[data-baseweb="notification"][kind="info"] > div {
+        border-left-color: #4A90E2 !important;
+        background-color: #f8f9fa !important;
     }
     
     /* Form styling */
@@ -484,7 +514,8 @@ def show_authenticated_app():
             st.markdown("<div style='font-size: 60px; text-align: center;'>🏇</div>", unsafe_allow_html=True)
     
     with col2:
-        st.title("Intelligent Barn Management System")
+        st.markdown("<br>", unsafe_allow_html=True)  # Add space above tagline
+        st.markdown("<h2 style='margin-bottom: 0px; margin-left: 20px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
         st.markdown("---")
     
     # Page Navigation - Always visible and consistent
@@ -618,26 +649,28 @@ def show_horse_directory():
         
         if upcoming and "upcoming_events" in upcoming and upcoming["upcoming_events"]:
             for event in upcoming["upcoming_events"]:
-                col1, col2, col3 = st.columns([3, 2, 1])
-                
-                with col1:
-                    type_icons = {
-                        "veterinary": "🏥", "farrier": "🔨", "dental": "🦷",
-                        "supply_delivery": "🚛", "training": "⭐", "other": "📅"
-                    }
-                    icon = type_icons.get(event["event_type"], "📅")
-                    st.write(f"{icon} **{event['title']}**")
-                    if event.get('horse_name'):
-                        st.write(f"   🐴 {event['horse_name']}")
-                
-                with col2:
-                    event_dt = datetime.fromisoformat(event['scheduled_date'])
-                    st.write(f"📅 {event_dt.strftime('%m/%d')} at {event_dt.strftime('%I:%M %p')}")
-                
-                with col3:
-                    if st.button("View", key=f"dash_event_{event['id']}"):
-                        # Navigate to calendar
-                        st.info("Click 'Calendar' in the sidebar to manage events")
+                type_icons = {
+                    "veterinary": "🏥", "farrier": "🔨", "dental": "🦷",
+                    "supply_delivery": "🚛", "training": "⭐", "other": "📅"
+                }
+                icon = type_icons.get(event["event_type"], "📅")
+                event_dt = datetime.fromisoformat(event['scheduled_date'])
+                horse_info = f"🐴 {event['horse_name']}" if event.get('horse_name') else ""
+
+                # Build HTML parts conditionally
+                horse_html = f'<p style="margin: 0; color: #666; font-size: 0.9em;">{horse_info}</p>' if horse_info else ''
+
+                st.markdown(f"""
+                <div style="border: none; border-radius: 12px; padding: 20px; margin: 10px 0; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0 0 5px 0; font-size: 1.1em; font-weight: bold; color: #000000;">{icon} {event['title']}</h4>
+                        {horse_html}
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="margin: 0; color: #000000; font-size: 0.9em; font-weight: 500;">📅 {event_dt.strftime('%m/%d')} at {event_dt.strftime('%I:%M %p')}</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
             if len(upcoming["upcoming_events"]) >= 5:
                 st.write("*View more in the Calendar tab*")
@@ -703,7 +736,7 @@ def show_horse_directory():
     # Display Horses in Cards
     if horses:
         # Create responsive columns
-        num_cols = 3
+        num_cols = 2
         cols = st.columns(num_cols)
         
         for idx, horse in enumerate(horses):
@@ -754,20 +787,20 @@ def show_horse_directory():
                                     bottom: 0;
                                     border-radius: 10px;
                                 """
-                                card_style = f"border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin: 10px 0; min-height: 250px; {background_style}"
+                                card_style = f"border: none; border-radius: 12px; padding: 20px; margin: 15px 0; min-height: 250px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); transition: transform 0.2s ease, box-shadow 0.2s ease; {background_style}"
                                 
                                 st.markdown(f"""
-                                <div style="{card_style}">
-                                    <div style="{overlay_style}"></div>
-                                    <div style="position: relative; z-index: 1; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">
-                                        <h4 style="text-shadow: 1px 1px 3px rgba(0,0,0,0.4);">{horse.get('name', 'Unknown')} <span class="health-emoji">{status_color}</span></h4>
-                                        <p><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
-                                        <p><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
-                                        <p><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
-                                        <p><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
-                                        <p><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
-                                        <p><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                                <div style="border: none; border-radius: 12px; padding: 0; margin: 15px 0; min-height: 250px; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; align-items: stretch;">
+                                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: center;">
+                                        <h3 style="margin: 0 0 15px 0; font-size: 1.5em; font-weight: bold; color: #000000;">{horse.get('name', 'Unknown')} <span style="font-size: 0.8em;">{status_color}</span></h3>
+                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
+                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
+                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
+                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
+                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
+                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
                                     </div>
+                                    <div style="width: 200px; border-radius: 0 12px 12px 0; background-image: url('data:{mime_type};base64,{img_data}'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
                                 </div>
                                 """, unsafe_allow_html=True)
                                 has_background = True
@@ -779,14 +812,17 @@ def show_horse_directory():
                 if not has_background:
                     with st.container():
                         st.markdown(f"""
-                        <div style="border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin: 10px 0; min-height: 250px; background-color: white;">
-                            <h4>{horse.get('name', 'Unknown')} <span class="health-emoji">{status_color}</span></h4>
-                            <p><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
-                            <p><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
-                            <p><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
-                            <p><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
-                            <p><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
-                            <p><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                        <div style="border: none; border-radius: 12px; padding: 0; margin: 15px 0; min-height: 250px; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; align-items: stretch;">
+                            <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: center;">
+                                <h3 style="margin: 0 0 15px 0; font-size: 1.5em; font-weight: bold; color: #000000;">{horse.get('name', 'Unknown')} <span style="font-size: 0.8em;">{status_color}</span></h3>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                            </div>
+                            <div style="width: 200px; border-radius: 0 12px 12px 0; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #888; font-style: italic;">No Photo</div>
                         </div>
                         """, unsafe_allow_html=True)
                 
@@ -2028,7 +2064,7 @@ def show_calendar():
                         # Color code by event type
                         type_colors = {
                             "veterinary": "🏥",
-                            "farrier": "🔨", 
+                            "farrier": "🔨",
                             "dental": "🦷",
                             "supply_delivery": "🚛",
                             "training": "⭐",
@@ -2036,17 +2072,32 @@ def show_calendar():
                             "health_treatment": "💊",
                             "other": "📅"
                         }
-                        
+
                         icon = type_colors.get(event["event_type"], "📅")
                         status_color = "🔴" if event["is_overdue"] else "🟢"
-                        horse_info = f" - {event['horse_name']}" if event["horse_name"] else ""
-                        
-                        st.write(f"{icon} {status_color} **{event['title']}**{horse_info}")
-                        st.write(f"   📍 {event.get('location', 'No location')} | ⏰ {datetime.fromisoformat(event['scheduled_date']).strftime('%I:%M %p')}")
-                        if event.get('provider_name'):
-                            st.write(f"   👤 {event['provider_name']}")
-                    
-                    st.write("---")
+                        horse_info = f"{event['horse_name']}" if event["horse_name"] else ""
+                        provider_info = f"👤 {event['provider_name']}" if event.get('provider_name') else ""
+                        location_info = event.get('location', 'No location')
+                        time_info = datetime.fromisoformat(event['scheduled_date']).strftime('%I:%M %p')
+
+                        with st.container():
+                            event_col1, event_col2 = st.columns([4, 1])
+
+                            with event_col1:
+                                st.markdown(f"""
+                                <div style="background-color: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 10px 0;">
+                                    <h4 style="margin: 0 0 10px 0; color: #000;">{icon} {event['title']}</h4>
+                                    <p style="margin: 5px 0; color: #666; font-size: 0.9em;">📍 {location_info} | ⏰ {time_info}</p>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                            with event_col2:
+                                st.write("")  # Spacing
+                                st.write(f"{status_color}")
+                                if horse_info:
+                                    st.write(f"🐴 {horse_info}")
+                                if provider_info:
+                                    st.write(provider_info)
                     
                 # Summary stats
                 st.subheader("📊 Month Summary")
@@ -2665,42 +2716,58 @@ def show_inventory_management():
     st.write(f"**Found {len(supplies)} supplies**")
     
     for supply in supplies:
+        # Stock status indicator
+        if supply['current_stock'] <= 0:
+            status = "🚨"  # Out of stock
+            status_color = "#dc3545"  # Red
+        elif supply['is_low_stock']:
+            status = "⚠️"  # Low stock
+            status_color = "#ffc107"  # Yellow
+        else:
+            status = "✅"  # Good stock
+            status_color = "#28a745"  # Green
+
+        # Prepare all the data
+        brand_info = f"Brand: {supply['brand']}" if supply['brand'] else ""
+        category_info = f"Category: {supply['category'].replace('_', ' ').title()}"
+        stock_info = f"📦 Stock: {supply['current_stock']} {supply['unit_type']}"
+        reorder_info = f"🔄 Reorder at: {supply['reorder_point']}" if supply['reorder_point'] else ""
+        days_info = f"📅 {supply['estimated_days_remaining']} days left" if supply.get('estimated_days_remaining') else ""
+        cost_info = f"💰 ${supply['last_cost_per_unit']:.2f} per {supply['unit_type'][:-1]}" if supply['last_cost_per_unit'] else ""
+        location_info = f"📍 {supply['storage_location']}" if supply['storage_location'] else ""
+
+        # Build HTML parts conditionally
+        brand_html = f'<p style="margin: 3px 0; color: #666; font-size: 0.9em;">{brand_info}</p>' if brand_info else ''
+        reorder_html = f'<p style="margin: 3px 0; color: #666; font-size: 0.9em;">{reorder_info}</p>' if reorder_info else ''
+        days_html = f'<p style="margin: 3px 0; color: #4A90E2; font-size: 0.9em;">{days_info}</p>' if days_info else ''
+        cost_html = f'<p style="margin: 3px 0; color: #000000; font-size: 0.9em; font-weight: 500;">{cost_info}</p>' if cost_info else ''
+        location_html = f'<p style="margin: 3px 0; color: #666; font-size: 0.9em;">{location_info}</p>' if location_info else ''
+
         with st.container():
-            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
-            
-            with col1:
-                # Stock status indicator
-                if supply['current_stock'] <= 0:
-                    status = "🚨"  # Out of stock
-                elif supply['is_low_stock']:
-                    status = "⚠️"  # Low stock
-                else:
-                    status = "✅"  # Good stock
-                
-                st.write(f"{status} **{supply['name']}**")
-                if supply['brand']:
-                    st.write(f"Brand: {supply['brand']}")
-                st.write(f"Category: {supply['category'].replace('_', ' ').title()}")
-            
-            with col2:
-                st.write(f"📦 Stock: {supply['current_stock']} {supply['unit_type']}")
-                if supply['reorder_point']:
-                    st.write(f"🔄 Reorder at: {supply['reorder_point']}")
-                if supply.get('estimated_days_remaining'):
-                    st.write(f"📅 {supply['estimated_days_remaining']} days left")
-            
-            with col3:
-                if supply['last_cost_per_unit']:
-                    st.write(f"💰 ${supply['last_cost_per_unit']:.2f} per {supply['unit_type'][:-1]}")
-                if supply['storage_location']:
-                    st.write(f"📍 {supply['storage_location']}")
-            
-            with col4:
-                if st.button("✏️", key=f"edit_supply_{supply['id']}", help="Edit supply"):
-                    st.session_state[f'editing_supply_{supply["id"]}'] = True
-                    st.rerun()
-        
-        st.write("---")
+            card_col1, card_col2 = st.columns([3, 1])
+
+            with card_col1:
+                st.markdown(f"""
+                <div style="background-color: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 10px 0;">
+                    <h4 style="margin: 0 0 10px 0; color: #000;">{status} {supply['name']}</h4>
+                    <p style="margin: 5px 0; color: #666; font-size: 0.9em;">{category_info}</p>
+                    <p style="margin: 5px 0; color: #000; font-weight: 500;">{stock_info}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with card_col2:
+                st.write("")  # Spacing
+                if cost_info:
+                    st.write(cost_info)
+                if location_info:
+                    st.write(location_info)
+
+        # Edit button below the card
+        col1, col2, col3 = st.columns([1, 1, 8])
+        with col1:
+            if st.button("✏️ Edit", key=f"edit_supply_{supply['id']}", help="Edit supply"):
+                st.session_state[f'editing_supply_{supply["id"]}'] = True
+                st.rerun()
     
     # Handle adding new supply
     if 'adding_supply' in st.session_state:

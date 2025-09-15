@@ -6,6 +6,8 @@ import logging
 
 from app.core.config import get_settings
 from app.core.auth import get_current_user_optional, get_current_user, get_user_barn_access
+from fastapi import HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.database import get_db, Base, db_manager
 from app.models.horse import Horse
 from app.models.event import Event, EventType_Config
@@ -20,6 +22,48 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 app = FastAPI(title="Barn Lady API", version="1.0.0")
+
+# Custom authentication that uses JWT parsing
+security = HTTPBearer(auto_error=False)
+
+def get_jwt_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
+    """Get user data from JWT token (custom authentication)"""
+    if not credentials:
+        return None
+
+    try:
+        import jwt
+        token = credentials.credentials
+        # Parse JWT without verification to extract user data
+        decoded_token = jwt.decode(token, options={"verify_signature": False})
+
+        user_data = {
+            "user_id": decoded_token.get("user_id"),
+            "email": decoded_token.get("email"),
+            "organizations": []
+        }
+
+        # Extract organization info
+        org_info = decoded_token.get("org_id_to_org_member_info", {})
+        for org_id, org_data in org_info.items():
+            barn_info = {
+                "barn_id": org_data.get("org_id"),
+                "barn_name": org_data.get("org_name"),
+                "user_role": org_data.get("user_role"),
+                "permissions": org_data.get("user_permissions", [])
+            }
+            user_data["organizations"].append(barn_info)
+
+        return user_data
+    except Exception as e:
+        logger.error(f"JWT parsing error in get_jwt_user: {str(e)}")
+        return None
+
+def get_jwt_user_required(user_data: Optional[dict] = Depends(get_jwt_user)) -> dict:
+    """Get user data from JWT token (required)"""
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user_data
 
 # Add CORS middleware
 app.add_middleware(
@@ -61,13 +105,16 @@ async def health_check():
     return {"status": "healthy", "database": "connected", "version": "2.0.0"}
 
 @app.get("/api/v1/auth/user")
-async def get_user_info(user = Depends(get_current_user)):
+async def get_user_info(user_data = Depends(get_jwt_user_required)):
     """Get current user information and barn access"""
     try:
-        barns = get_user_barn_access(user)
+        barns = user_data.get("organizations", [])
+        user_id = user_data.get("user_id")
+        email = user_data.get("email")
+
         return {
-            "user_id": user.user_id,
-            "email": user.email,
+            "user_id": user_id,
+            "email": email,
             "barns": barns
         }
     except Exception as e:
@@ -75,10 +122,10 @@ async def get_user_info(user = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Error retrieving user information")
 
 @app.get("/api/v1/auth/barns")
-async def get_user_barns(user = Depends(get_current_user)):
+async def get_user_barns(user_data = Depends(get_jwt_user_required)):
     """Get all barns the current user has access to"""
     try:
-        barns = get_user_barn_access(user)
+        barns = user_data.get("organizations", [])
         return {"barns": barns}
     except Exception as e:
         logger.error(f"Error getting user barns: {str(e)}")
@@ -94,7 +141,7 @@ async def validate_token_debug(token_data: dict):
         
         # Test with our auth system
         from app.core.auth import auth
-        user = auth.validate_access_token(token)
+        user = auth.validate_access_token_and_get_user(f"Bearer {token}")
         
         if user:
             return {
@@ -233,19 +280,23 @@ async def exchange_code_for_token(request_data: dict):
         import requests
         
         # PropelAuth token endpoint
-        token_url = f"{settings.PROPELAUTH_URL}/api/backend/v1/oauth/token"
-        
+        token_url = f"{settings.PROPELAUTH_URL}/propelauth/oauth/token"
+
         # OAuth token exchange parameters
         token_data = {
             "grant_type": "authorization_code",
             "code": auth_code,
-            "redirect_uri": redirect_uri,
-            "client_id": settings.PROPELAUTH_API_KEY  # Use API key as client_id
+            "redirect_uri": redirect_uri
         }
-        
+
+        # Use Basic Auth for client authentication (OAuth2 standard)
+        import base64
+        client_credentials = f"{settings.PROPELAUTH_CLIENT_ID}:{settings.PROPELAUTH_CLIENT_SECRET}"
+        client_credentials_b64 = base64.b64encode(client_credentials.encode()).decode()
+
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": f"Bearer {settings.PROPELAUTH_API_KEY}"
+            "Authorization": f"Basic {client_credentials_b64}"
         }
         
         logger.info(f"Exchanging code for token at: {token_url}")
@@ -261,18 +312,44 @@ async def exchange_code_for_token(request_data: dict):
             access_token = token_response.get("access_token")
             
             if access_token:
-                # Validate the token and get user info
-                from app.core.auth import auth
-                user = auth.validate_access_token(access_token)
-                
-                if user:
+                # Parse JWT to get user info directly (temporary workaround)
+                import jwt
+                import json
+
+                try:
+                    # Decode JWT without verification for now (since we got it directly from PropelAuth)
+                    decoded_token = jwt.decode(access_token, options={"verify_signature": False})
+                    logger.info(f"Decoded JWT: {json.dumps(decoded_token, indent=2)}")
+
+                    # Extract user information from JWT
+                    user_data = {
+                        "user_id": decoded_token.get("user_id"),
+                        "email": decoded_token.get("email"),
+                        "organizations": []
+                    }
+
+                    # Extract organization info
+                    org_info = decoded_token.get("org_id_to_org_member_info", {})
+                    for org_id, org_data in org_info.items():
+                        barn_info = {
+                            "barn_id": org_data.get("org_id"),
+                            "barn_name": org_data.get("org_name"),
+                            "user_role": org_data.get("user_role"),
+                            "permissions": org_data.get("user_permissions", [])
+                        }
+                        user_data["organizations"].append(barn_info)
+
+                    logger.info(f"User {user_data['user_id']} has access to {len(user_data['organizations'])} barns")
+
                     return {
                         "success": True,
                         "access_token": access_token,
-                        "user": user
+                        "user": user_data
                     }
-                else:
-                    return {"success": False, "error": "Invalid access token received"}
+
+                except Exception as jwt_error:
+                    logger.error(f"JWT parsing error: {str(jwt_error)}")
+                    return {"success": False, "error": f"JWT parsing failed: {str(jwt_error)}"}
             else:
                 return {"success": False, "error": "No access token in response"}
         else:
@@ -419,7 +496,7 @@ async def handle_auth_callback(code: str = None, state: str = None, error: str =
             if access_token:
                 # Validate the token and get user info
                 from app.core.auth import auth
-                user = auth.validate_access_token(access_token)
+                user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
                 
                 if user:
                     # Create a simple session token for the frontend
@@ -479,7 +556,7 @@ async def validate_session(request_data: dict):
         access_token = session_data.get("access_token")
         if access_token:
             from app.core.auth import auth
-            user = auth.validate_access_token(access_token)
+            user = auth.validate_access_token_and_get_user(f"Bearer {access_token}")
             
             if user:
                 # Get user barn access

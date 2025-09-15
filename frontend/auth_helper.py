@@ -35,17 +35,26 @@ class StreamlitAuth:
             self._config_loaded = True
         
     def get_login_url(self, redirect_uri: str = None) -> str:
-        """Generate PropelAuth login URL with proper redirect"""
+        """Generate PropelAuth OAuth authorization URL"""
         self._load_config()
         if redirect_uri is None:
-            redirect_uri = f"http://localhost:8501/?auth=callback"  # Default with callback
-        
-        # Use PropelAuth's simple login with redirect back to our app
-        # PropelAuth handles the auth and redirects back to our callback URL
+            redirect_uri = f"http://localhost:8501"  # Just base URL, no parameters
+
+        # Use PropelAuth's OAuth authorization endpoint
+        import secrets
+        state = secrets.token_urlsafe(32)  # Generate random state for security
+
         params = urlencode({
-            'redirect_uri': redirect_uri
+            'client_id': st.secrets.get("PROPELAUTH_CLIENT_ID", "4a68fdae569be0db02111668f191c188"),
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'state': state
         })
-        return f"{self.auth_url}/login?{params}"
+
+        # Store state in session to verify it later
+        st.session_state.oauth_state = state
+        return f"{self.auth_url}/propelauth/oauth/authorize?{params}"
     
     def get_account_url(self) -> str:
         """Get PropelAuth account management URL"""
@@ -58,40 +67,108 @@ class StreamlitAuth:
     
     def get_current_user(self) -> Optional[Dict[str, Any]]:
         """Get current user from session state"""
+        # Check for OAuth callback first
+        self._handle_oauth_callback()
+
         # First check session state
         if "user" in st.session_state and st.session_state.user:
             return st.session_state.user
-        
+
         # Try to get access token (which handles backend OAuth flow)
         token = self.get_access_token()
         if not token:
             return None
-        
+
         # If we have a token, user should be in session state
         if "user" in st.session_state and st.session_state.user:
             return st.session_state.user
-        
+
         return None
     
 
     def get_access_token(self) -> Optional[str]:
-        """Get access token from session - simplified working version"""
+        """Get access token from session"""
         # First check session state
         if "access_token" in st.session_state and st.session_state.access_token:
             return st.session_state.access_token
-        
+
         # Don't process if user just logged out
         if st.session_state.get('user_logged_out', False):
             return None
-        
-        # For development, create a simple demo token
-        # This allows testing the app functionality while we plan proper OAuth
+
         return None
     
     def set_access_token(self, token: str):
         """Set access token in session state"""
         st.session_state.access_token = token
-    
+
+    def _handle_oauth_callback(self):
+        """Handle OAuth callback from PropelAuth"""
+        # Check if we're in a callback URL
+        try:
+            query_params = st.experimental_get_query_params()
+        except:
+            # Try the newer API
+            query_params = st.query_params
+
+
+        # Check for authorization code in URL parameters
+        auth_code = query_params.get('code')
+        state = query_params.get('state')
+        error = query_params.get('error')
+
+        if error:
+            st.error(f"Authentication error: {error[0] if isinstance(error, list) else error}")
+            return
+
+        if auth_code and state:
+            # Note: In Streamlit, session state might reset on page reload
+            # For now, we'll process the callback if we have code and state
+            # In production, implement proper state storage (Redis, database, etc.)
+            actual_state = state[0] if isinstance(state, list) else state
+            auth_code = auth_code[0] if isinstance(auth_code, list) else auth_code
+
+            # Only process if we haven't already processed this callback
+            if not st.session_state.get('callback_processed'):
+                with st.spinner("Completing login..."):
+                    # Exchange code for access token
+                    token = self._exchange_code_for_token(auth_code)
+
+                    if token:
+                        # Store the token
+                        st.session_state.access_token = token
+                        st.session_state.callback_processed = True
+
+                        # Fetch user data from the backend
+                        user_data = self._fetch_user_from_token(token)
+                        if user_data:
+                            st.session_state.user = user_data
+
+                        # Clear URL parameters and refresh
+                        try:
+                            st.experimental_set_query_params()
+                        except:
+                            # Try newer API or just skip URL clearing
+                            pass
+                        st.rerun()
+
+    def _fetch_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Fetch user data using access token"""
+        try:
+            self._load_config()
+            headers = {"Authorization": f"Bearer {token}"}
+            response = requests.get(f"{self.backend_url}/api/v1/auth/user", headers=headers)
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                st.error(f"Failed to fetch user data: {response.status_code}")
+                return None
+
+        except Exception as e:
+            st.error(f"Error fetching user data: {str(e)}")
+            return None
+
     def _exchange_code_for_token(self, auth_code: str) -> Optional[str]:
         """Exchange OAuth authorization code for access token"""
         try:
@@ -102,7 +179,7 @@ class StreamlitAuth:
                 f"{self.backend_url}/api/v1/auth/exchange-code",
                 json={
                     "code": auth_code,
-                    "redirect_uri": "http://localhost:8501/?auth=callback"
+                    "redirect_uri": "http://localhost:8501"
                 },
                 timeout=10
             )
@@ -247,32 +324,53 @@ class StreamlitAuth:
             return []
     
     def show_login_interface(self):
-        """Show simple demo login interface for development"""
-        st.info("🔐 **Demo Login - Choose a test user**")
-        
-        # Center the login options
+        """Show real PropelAuth login interface"""
+        # Display logo and tagline (same as authenticated app)
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            # Try different path approaches for the logo
+            import os
+            logo_paths = [
+                "assets/barn_lady_logo.png",
+                "./assets/barn_lady_logo.png",
+                "frontend/assets/barn_lady_logo.png",
+                os.path.join(os.path.dirname(__file__), "assets", "barn_lady_logo.png")
+            ]
+
+            logo_displayed = False
+            for logo_path in logo_paths:
+                try:
+                    if os.path.exists(logo_path):
+                        st.image(logo_path, width=200)
+                        logo_displayed = True
+                        break
+                except:
+                    continue
+
+            if not logo_displayed:
+                # Fallback to emoji if logo not found
+                st.markdown("<div style='font-size: 60px; text-align: center;'>🏇</div>", unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)  # Add space above tagline
+            st.markdown("<h2 style='margin-bottom: 0px; margin-left: 20px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
+            st.markdown("---")
+
+        st.info("🔐 **Please log in to access your barn management system**")
+
+        # Center the login button
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.markdown("**Select demo user:**")
-            
-            if st.button("👤 CJ Murphy (cjmurphy.nyc@gmail.com)", use_container_width=True, type="primary"):
-                # Set demo authentication for CJ and fetch real barn data
-                self._setup_demo_user("cjmurphy.nyc@gmail.com")
-                
-            if st.button("👤 Chris Carril (chris@carril.com)", use_container_width=True, type="secondary"):
-                # Set demo authentication for Chris and fetch real barn data
-                self._setup_demo_user("chris@carril.com")
-        
-        st.markdown("---")
-        
-        # Next steps info
-        with st.expander("🔧 Next Steps", expanded=False):
-            st.write("**This is a temporary demo login for testing.**")
-            st.write("**Next steps for production:**")
-            st.write("1. Switch to Production PropelAuth environment")
-            st.write("2. Implement proper OAuth 2.0 flow")
-            st.write("3. Configure real multi-user authentication")
-            st.write("4. Deploy to Railway with production settings")
+            # Show the real PropelAuth login button
+            self.show_login_button("🚀 Login with PropelAuth")
+
+            st.markdown("---")
+
+            # Information about the system
+            st.markdown("**🏇 Stable Genius Barn Management**")
+            st.write("• Manage horses, supplies, and barn operations")
+            st.write("• Multi-barn support with role-based access")
+            st.write("• Secure authentication with PropelAuth")
 
     def show_login_button(self, text: str = "Login with PropelAuth"):
         """Show login button that redirects to PropelAuth"""
@@ -298,7 +396,7 @@ class StreamlitAuth:
             if user:
                 # User info with consistent styling matching pulldowns
                 st.markdown("**Welcome Back:**")
-                st.markdown(f'<div style="background-color: white; border: 1px solid #D2691E; border-radius: 8px; padding: 10px; margin-bottom: 16px;"><span style="color: #5D4037;">👤 {user.get("email", "User")}</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background-color: white; border: 1px solid #4A90E2; border-radius: 8px; padding: 10px; margin-bottom: 16px;"><span style="color: #000000;">👤 {user.get("email", "User")}</span></div>', unsafe_allow_html=True)
                 
                 # Account button under username
                 account_url = self.get_account_url()
@@ -325,7 +423,7 @@ class StreamlitAuth:
                             st.session_state.selected_barn_name = selected_barn_name
                     else:
                         st.markdown("**Your Barn:**")
-                        st.markdown(f'<div style="background-color: white; border: 1px solid #D2691E; border-radius: 8px; padding: 10px; margin-bottom: 16px;"><span style="color: #5D4037;">🏇 {barns[0]["barn_name"]} ({barns[0]["user_role"]})</span></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div style="background-color: white; border: 1px solid #4A90E2; border-radius: 8px; padding: 10px; margin-bottom: 16px;"><span style="color: #000000;">🏇 {barns[0]["barn_name"]} ({barns[0]["user_role"]})</span></div>', unsafe_allow_html=True)
                         # Store single barn info
                         st.session_state.selected_barn_id = barns[0]['barn_id']
                         st.session_state.selected_barn_name = barns[0]['barn_name']
