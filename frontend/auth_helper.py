@@ -24,6 +24,7 @@ class StreamlitAuth:
         import os
         if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PORT'):
             self.backend_url = "https://web-production-10a5d.up.railway.app"
+            self._dynamic_backend_url_set = True
         else:
             self.backend_url = "http://localhost:8002"
         self._config_loaded = False
@@ -33,7 +34,9 @@ class StreamlitAuth:
         if not self._config_loaded:
             try:
                 self.auth_url = st.secrets.get("PROPELAUTH_URL", "https://34521247761.propelauthtest.com")
-                self.backend_url = st.secrets.get("BACKEND_URL", "http://localhost:8002")
+                # Don't override backend_url if it was already set dynamically
+                if not hasattr(self, '_dynamic_backend_url_set'):
+                    self.backend_url = st.secrets.get("BACKEND_URL", "http://localhost:8002")
             except:
                 # Keep defaults
                 pass
