@@ -192,13 +192,20 @@ class StreamlitAuth:
             
             if response.status_code == 200:
                 result = response.json()
+                # Debug: Show what we got back
+                st.write("Debug - API Response:", result)
+
                 if result.get("success") and result.get("access_token"):
                     # Store user data
                     if "user" in result:
                         st.session_state.user = result["user"]
                     return result["access_token"]
-            
+                else:
+                    st.error(f"Token exchange failed - missing fields. Got: {result}")
+                    return None
+
             st.error(f"Token exchange failed: {response.status_code}")
+            st.write("Response text:", response.text)
             return None
                 
         except Exception as e:
