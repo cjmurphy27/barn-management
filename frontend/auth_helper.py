@@ -38,7 +38,12 @@ class StreamlitAuth:
         """Generate PropelAuth OAuth authorization URL"""
         self._load_config()
         if redirect_uri is None:
-            redirect_uri = f"http://localhost:8501"  # Just base URL, no parameters
+            # Dynamically detect the current URL based on environment
+            import os
+            if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PORT'):
+                redirect_uri = "https://web-production-10a5d.up.railway.app"
+            else:
+                redirect_uri = "http://localhost:8501"  # Fallback for local development
 
         # Use PropelAuth's OAuth authorization endpoint
         import secrets
@@ -172,14 +177,15 @@ class StreamlitAuth:
     def _exchange_code_for_token(self, auth_code: str) -> Optional[str]:
         """Exchange OAuth authorization code for access token"""
         try:
+            import os
             self._load_config()
-            
+
             # Call our backend to exchange code for token
             response = requests.post(
                 f"{self.backend_url}/api/v1/auth/exchange-code",
                 json={
                     "code": auth_code,
-                    "redirect_uri": "http://localhost:8501"
+                    "redirect_uri": "https://web-production-10a5d.up.railway.app" if (os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PORT')) else "http://localhost:8501"
                 },
                 timeout=10
             )
