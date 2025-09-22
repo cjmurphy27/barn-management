@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional, Dict, Any, List
 import json
 from auth_helper import auth
+from whiteboard import show_whiteboard_page
 
 # Custom CSS for button styling and to hide automatic navigation
 st.markdown("""
@@ -503,7 +504,7 @@ def show_authenticated_app():
         for logo_path in logo_paths:
             try:
                 if os.path.exists(logo_path):
-                    st.image(logo_path, width=200)
+                    st.image(logo_path, width=180)
                     logo_displayed = True
                     break
             except:
@@ -511,11 +512,11 @@ def show_authenticated_app():
                 
         if not logo_displayed:
             # Fallback to emoji if logo not found
-            st.markdown("<div style='font-size: 60px; text-align: center;'>🏇</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 50px; text-align: center; margin-right: 20px;'>🏇</div>", unsafe_allow_html=True)
     
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)  # Add space above tagline
-        st.markdown("<h2 style='margin-bottom: 0px; margin-left: 20px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='margin-bottom: 0px; margin-left: 40px; padding-top: 15px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
         st.markdown("---")
     
     # Page Navigation - Always visible and consistent
@@ -551,7 +552,7 @@ def show_authenticated_app():
                 current_page = "Horse Profile"
         
         # Always show the same navigation options
-        all_pages = ["Horse Directory", "Add New Horse", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports"]
+        all_pages = ["Horse Directory", "Add New Horse", "📋 Message Board", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports"]
         
         # Add horse-specific pages when viewing a horse
         if 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
@@ -586,6 +587,8 @@ def show_authenticated_app():
         show_horse_directory()
     elif page == "Add New Horse":
         show_add_horse_form()
+    elif page == "📋 Message Board":
+        show_whiteboard()
     elif page == "📅 Calendar":
         show_calendar()
     elif page == "📦 Supplies":
@@ -2010,6 +2013,10 @@ def show_add_horse_form():
                 st.info("Horse has been added! Go to Horse Directory to see all horses.")
             else:
                 st.error("Failed to add horse. Please check your inputs and try again.")
+
+def show_whiteboard():
+    """Display whiteboard page"""
+    show_whiteboard_page()
 
 def show_calendar():
     """Display calendar view and event management"""

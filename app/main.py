@@ -83,6 +83,10 @@ app.include_router(supplies_router)
 from app.api.horse_documents import router as horse_documents_router
 app.include_router(horse_documents_router, prefix="/api/v1")
 
+# Import and include whiteboard router
+from app.api.whiteboard import router as whiteboard_router
+app.include_router(whiteboard_router)
+
 # Database initialization
 @app.on_event("startup")
 async def startup_event():
