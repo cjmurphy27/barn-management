@@ -107,6 +107,106 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
 
+# TEMPORARY: Migration endpoint for Railway deployment
+@app.post("/api/v1/admin/migrate-photos")
+async def migrate_photos_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    TEMPORARY endpoint to run photo migration on Railway.
+    Remove this after migration is complete.
+    """
+    import os
+    import sys
+    import shutil
+    from pathlib import Path
+    import base64
+    from sqlalchemy.orm import Session
+
+    try:
+        # Add scripts directory to path
+        scripts_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'scripts')
+        if scripts_path not in sys.path:
+            sys.path.append(scripts_path)
+
+        # Import migration logic
+        with db_manager.get_session() as session:
+            from app.models.horse import Horse
+
+            # Get all horses with profile photos
+            horses = session.query(Horse).filter(Horse.profile_photo_path.isnot(None)).all()
+
+            migrated_count = 0
+            errors = []
+
+            for horse in horses:
+                try:
+                    if not horse.profile_photo_path:
+                        continue
+
+                    # Create organization directory
+                    org_dir = os.path.join("storage", "horse_photos", horse.organization_id)
+                    os.makedirs(org_dir, exist_ok=True)
+
+                    # Determine file extension
+                    if horse.profile_photo_path.endswith(('.jpg', '.jpeg', '.png', '.webp', '.JPG', '.JPEG')):
+                        # File path - copy the file
+                        source_path = horse.profile_photo_path
+                        if os.path.exists(source_path):
+                            ext = os.path.splitext(source_path)[1]
+                            new_filename = f"horse_{horse.id}_migrated{ext}"
+                            dest_path = os.path.join(org_dir, new_filename)
+                            shutil.copy2(source_path, dest_path)
+                            migrated_count += 1
+                            logger.info(f"Migrated horse {horse.id}: {source_path} -> {dest_path}")
+                    else:
+                        # Assume Base64 data
+                        try:
+                            if ',' in horse.profile_photo_path:
+                                header, data = horse.profile_photo_path.split(',', 1)
+                                # Determine extension from header
+                                if 'jpeg' in header or 'jpg' in header:
+                                    ext = '.jpg'
+                                elif 'png' in header:
+                                    ext = '.png'
+                                elif 'webp' in header:
+                                    ext = '.webp'
+                                else:
+                                    ext = '.jpg'  # Default
+                            else:
+                                data = horse.profile_photo_path
+                                ext = '.jpg'  # Default
+
+                            # Decode and save
+                            image_data = base64.b64decode(data)
+                            new_filename = f"horse_{horse.id}_migrated{ext}"
+                            dest_path = os.path.join(org_dir, new_filename)
+
+                            with open(dest_path, 'wb') as f:
+                                f.write(image_data)
+
+                            migrated_count += 1
+                            logger.info(f"Migrated horse {horse.id} from Base64 -> {dest_path}")
+                        except Exception as base64_error:
+                            errors.append(f"Horse {horse.id}: Base64 decode error - {str(base64_error)}")
+
+                except Exception as horse_error:
+                    errors.append(f"Horse {horse.id}: {str(horse_error)}")
+
+            session.commit()
+
+            return {
+                "status": "success",
+                "migrated_count": migrated_count,
+                "total_horses": len(horses),
+                "errors": errors
+            }
+
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "database": "connected", "version": "2.0.0"}

@@ -575,7 +575,7 @@ def show_authenticated_app():
                 current_page = "Horse Profile"
         
         # Always show the same navigation options
-        all_pages = ["Horse Directory", "Add New Horse", "📋 Message Board", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports"]
+        all_pages = ["Horse Directory", "Add New Horse", "📋 Message Board", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports", "⚙️ Admin"]
         
         # Add horse-specific pages when viewing a horse
         if 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
@@ -624,6 +624,8 @@ def show_authenticated_app():
         show_ai_assistant()
     elif page == "Reports":
         show_reports()
+    elif page == "⚙️ Admin":
+        show_admin_page()
 
 # Main App
 def main():
@@ -3393,6 +3395,41 @@ def show_reports():
     """Display reports and analytics"""
     st.header("📊 Reports & Analytics")
     st.info("Reports and analytics will be implemented in future phases.")
+
+def show_admin_page():
+    """TEMPORARY admin page for Railway migration"""
+    st.header("⚙️ Admin Tools")
+    st.warning("🚨 **TEMPORARY**: This admin page is for Railway migration only and will be removed after migration.")
+
+    st.subheader("Photo Migration")
+    st.info("Click the button below to migrate horse photos from Base64 to FastAPI storage on Railway.")
+
+    if st.button("🔄 Run Photo Migration", type="primary"):
+        with st.spinner("Running migration... This may take a few minutes."):
+            try:
+                # Call the migration endpoint
+                response = api_request("POST", "/api/v1/admin/migrate-photos")
+
+                if response and response.get("status") == "success":
+                    st.success(f"✅ Migration completed successfully!")
+                    st.write(f"**Migrated:** {response.get('migrated_count')} horses")
+                    st.write(f"**Total horses:** {response.get('total_horses')}")
+
+                    if response.get("errors"):
+                        st.warning("⚠️ Some errors occurred:")
+                        for error in response.get("errors"):
+                            st.write(f"- {error}")
+                else:
+                    st.error(f"❌ Migration failed: {response.get('message', 'Unknown error')}")
+
+            except Exception as e:
+                st.error(f"❌ Migration failed: {str(e)}")
+
+    st.markdown("---")
+    st.markdown("**After successful migration:**")
+    st.markdown("1. Verify horse photos are loading correctly")
+    st.markdown("2. Remove this admin page from the code")
+    st.markdown("3. Remove the migration endpoint from main.py")
 
 if __name__ == "__main__":
     main()
