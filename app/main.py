@@ -86,6 +86,9 @@ app.include_router(horse_documents_router, prefix="/api/v1")
 # Import and include whiteboard router
 from app.api.whiteboard import router as whiteboard_router
 app.include_router(whiteboard_router)
+# Import and include horse photos router
+from app.api.horse_photos import router as horse_photos_router
+app.include_router(horse_photos_router)
 
 # Database initialization
 @app.on_event("startup")

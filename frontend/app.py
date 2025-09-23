@@ -297,6 +297,16 @@ def api_request(method: str, endpoint: str, data: dict = None) -> dict:
         st.error(f"API Error: {str(e)}")
         return {}
 
+def get_horse_photo_url(horse_id: int, organization_id: str) -> str:
+    """Get horse photo URL for FastAPI endpoint"""
+    return f"{API_BASE_URL}/api/v1/horses/{horse_id}/photo?organization_id={organization_id}"
+
+def get_auth_headers():
+    """Get authentication headers for API requests"""
+    if 'access_token' in st.session_state:
+        return {'Authorization': f'Bearer {st.session_state.access_token}'}
+    return {}
+
 def api_request_with_conflict_handling(method: str, endpoint: str, data: dict = None) -> dict:
     """Make API request that handles 409 conflicts gracefully for inventory operations"""
     url = f"{API_BASE_URL}{endpoint}"
@@ -760,53 +770,27 @@ def show_horse_directory():
                 has_background = False
                 
                 if profile_photo and profile_photo.strip():  # Check if not empty or just whitespace
-                    import os
-                    import base64
                     try:
-                        # Check if file exists and is readable
-                        if os.path.exists(profile_photo) and os.path.isfile(profile_photo):
-                            with open(profile_photo, "rb") as img_file:
-                                img_data = base64.b64encode(img_file.read()).decode()
-                                img_extension = profile_photo.split('.')[-1].lower()
-                                mime_type = f"image/{img_extension}" if img_extension in ['jpg', 'jpeg', 'png', 'gif', 'webp'] else "image/jpeg"
-                                
-                                # Render with background image using HTML
-                                background_style = f"""
-                                    background-image: url('data:{mime_type};base64,{img_data}');
-                                    background-size: cover;
-                                    background-position: center;
-                                    background-repeat: no-repeat;
-                                    position: relative;
-                                """
-                                overlay_style = """
-                                    background: linear-gradient(to bottom,
-                                        rgba(255,255,255,0.85) 0%,
-                                        rgba(255,255,255,0.75) 60%,
-                                        rgba(255,255,255,0.45) 100%);
-                                    position: absolute;
-                                    top: 0;
-                                    left: 0;
-                                    right: 0;
-                                    bottom: 0;
-                                    border-radius: 10px;
-                                """
-                                card_style = f"border: none; border-radius: 12px; padding: 20px; margin: 15px 0; min-height: 250px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); transition: transform 0.2s ease, box-shadow 0.2s ease; {background_style}"
-                                
-                                st.markdown(f"""
-                                <div style="border: none; border-radius: 12px; padding: 0; margin: 15px 0; min-height: 250px; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; align-items: stretch;">
-                                    <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: center;">
-                                        <h3 style="margin: 0 0 15px 0; font-size: 1.5em; font-weight: bold; color: #000000;">{horse.get('name', 'Unknown')} <span style="font-size: 0.8em;">{status_color}</span></h3>
-                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
-                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
-                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
-                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
-                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
-                                        <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
-                                    </div>
-                                    <div style="width: 200px; border-radius: 0 12px 12px 0; background-image: url('data:{mime_type};base64,{img_data}'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
+                        # Use FastAPI endpoint for photo instead of Base64
+                        if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                            organization_id = st.session_state.selected_barn_id
+                            photo_url = get_horse_photo_url(horse['id'], organization_id)
+
+                            st.markdown(f"""
+                            <div style="border: none; border-radius: 12px; padding: 0; margin: 15px 0; min-height: 250px; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; align-items: stretch;">
+                                <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: center;">
+                                    <h3 style="margin: 0 0 15px 0; font-size: 1.5em; font-weight: bold; color: #000000;">{horse.get('name', 'Unknown')} <span style="font-size: 0.8em;">{status_color}</span></h3>
+                                    <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
+                                    <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
+                                    <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
+                                    <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
+                                    <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
+                                    <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
                                 </div>
-                                """, unsafe_allow_html=True)
-                                has_background = True
+                                <div style="width: 200px; border-radius: 0 12px 12px 0; background-image: url('{photo_url}'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            has_background = True
                     except Exception as e:
                         # Silently handle any image loading errors
                         has_background = False
@@ -1140,16 +1124,22 @@ def show_horse_profile():
     
     # Horse Header with Photo
     if horse.get('profile_photo_path'):
-        import os
-        if os.path.exists(horse['profile_photo_path']):
-            col_photo, col_info, col_status, col_buttons = st.columns([1, 2, 1, 1])
-            with col_photo:
-                st.image(horse['profile_photo_path'], width=150, caption="Profile Photo")
-        else:
-            col_photo, col_info, col_status, col_buttons = st.columns([1, 2, 1, 1])
-            with col_photo:
-                st.markdown("📷")
-                st.caption("No photo")
+        col_photo, col_info, col_status, col_buttons = st.columns([1, 2, 1, 1])
+        with col_photo:
+            try:
+                # Use FastAPI endpoint for photo display
+                if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                    organization_id = st.session_state.selected_barn_id
+                    photo_url = get_horse_photo_url(horse['id'], organization_id)
+                    # Use HTML to display the image with auth headers
+                    st.markdown(f"""
+                    <img src="{photo_url}" style="width: 150px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Profile Photo">
+                    <p style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">Profile Photo</p>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.write("📷 Photo available")
+            except Exception as e:
+                st.write("📷 Photo not available")
     else:
         col_photo, col_info, col_status, col_buttons = st.columns([1, 2, 1, 1])
         with col_photo:
@@ -1752,10 +1742,18 @@ def show_edit_horse_form():
         
         with col_current:
             if horse.get('profile_photo_path'):
-                import os
-                if os.path.exists(horse['profile_photo_path']):
-                    st.image(horse['profile_photo_path'], width=150, caption="Current Photo")
-                else:
+                try:
+                    # Use FastAPI endpoint for photo display
+                    if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                        organization_id = st.session_state.selected_barn_id
+                        photo_url = get_horse_photo_url(horse['id'], organization_id)
+                        st.markdown(f"""
+                        <img src="{photo_url}" style="width: 150px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Current Photo">
+                        <p style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">Current Photo</p>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.write("📷 Current photo available")
+                except Exception as e:
                     st.write("📷 Current photo not found")
             else:
                 st.write("📷 No current photo")
