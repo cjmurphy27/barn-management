@@ -922,39 +922,91 @@ def show_ai_assistant():
                     placeholder="e.g., What feeding schedule do you recommend? How should I manage their training? What health issues should I watch for?",
                     height=100
                 )
-                
-                # Photo upload section
+
+                # Photo upload section with improved styling
                 st.markdown("**📸 Optional: Upload a photo for visual analysis**")
-                col_upload, col_camera = st.columns(2)
-                
-                with col_upload:
+
+                # Add CSS styling to match Create Post page
+                st.markdown("""
+                <style>
+                /* Target the file uploader container */
+                [data-testid="stFileUploader"] {
+                    background-color: white !important;
+                }
+
+                /* Target the drag and drop area */
+                [data-testid="stFileUploader"] > div > div > div {
+                    background-color: white !important;
+                    background: white !important;
+                    border: 2px dashed #1f77b4 !important;
+                }
+
+                /* Target the inner content */
+                [data-testid="stFileUploader"] section {
+                    background-color: white !important;
+                    background: white !important;
+                }
+
+                /* Remove blue background from file uploader */
+                .stFileUploader section {
+                    background-color: white !important;
+                    background: white !important;
+                }
+
+                .stFileUploader section div {
+                    background-color: white !important;
+                    background: white !important;
+                }
+
+                /* Hide the Browse files button inside the drag area */
+                [data-testid="stFileUploader"] button {
+                    display: none !important;
+                }
+
+                /* Hide the button text in the file uploader */
+                [data-testid="stFileUploader"] section button {
+                    display: none !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
+                # Create two columns for the buttons
+                col_browse, col_camera = st.columns(2)
+
+                uploaded_file = None
+                camera_photo = None
+
+                with col_browse:
+                    st.markdown("**📁 Browse Files**")
                     uploaded_file = st.file_uploader(
-                        "Upload photo",
+                        "",  # Remove the label since we have it above
                         type=['png', 'jpg', 'jpeg', 'webp'],
-                        help="Upload a photo of your horse for visual analysis"
+                        help="Upload a photo of your horse for visual analysis",
+                        key="ai_file_upload",
+                        label_visibility="collapsed"
                     )
-                
+
                 with col_camera:
+                    st.markdown("**📷 Camera**")
                     # Camera toggle button
-                    if 'camera_enabled' not in st.session_state:
-                        st.session_state.camera_enabled = False
-                    
-                    if st.button("📷 Enable Camera" if not st.session_state.camera_enabled else "📷 Disable Camera", 
-                                type="secondary"):
-                        st.session_state.camera_enabled = not st.session_state.camera_enabled
+                    if 'ai_camera_enabled' not in st.session_state:
+                        st.session_state.ai_camera_enabled = False
+
+                    if st.button("📷 Enable Camera" if not st.session_state.ai_camera_enabled else "📷 Disable Camera",
+                                type="secondary", key="ai_camera_toggle"):
+                        st.session_state.ai_camera_enabled = not st.session_state.ai_camera_enabled
                         st.rerun()
-                    
-                    camera_photo = None
-                    if st.session_state.camera_enabled:
-                        camera_photo = st.camera_input("Take a photo", help="Take a photo directly with your camera")
-                
+
+                    if st.session_state.ai_camera_enabled:
+                        camera_photo = st.camera_input("Take a photo", help="Take a photo directly with your camera", key="ai_camera")
+
                 # Use either uploaded file or camera photo
                 photo_to_analyze = uploaded_file if uploaded_file else camera_photo
-                
+
                 if photo_to_analyze:
                     st.image(photo_to_analyze, caption="Photo for AI analysis", width=300)
-                
-                if st.button("🤖 Ask AI", type="primary"):
+
+                if st.button("🤖 Ask AI", type="primary", use_container_width=True):
                     if question:
                         with st.spinner("Getting AI response..."):
                             # Prepare request data
@@ -996,7 +1048,7 @@ def show_ai_assistant():
                     selected_horse_id = horse_options[selected_horse_display]
                     selected_horse_name = selected_horse_display.split(" (")[0]
                     
-                    if st.button("🔍 Analyze This Horse", type="primary"):
+                    if st.button("🔍 Analyze This Horse", type="primary", use_container_width=True):
                         with st.spinner(f"Analyzing {selected_horse_name}..."):
                             result = api_request("POST", "/api/v1/ai/analyze-horse", {
                                 "horse_id": selected_horse_id
