@@ -536,10 +536,6 @@ def show_authenticated_app():
     </style>
     """, unsafe_allow_html=True)
     
-    # Display tagline (logo now in sidebar)
-    st.markdown("<br>", unsafe_allow_html=True)  # Add space above tagline
-    st.markdown("<h2 style='margin-bottom: 0px; text-align: center; padding-top: 15px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
-    st.markdown("---")
     
     # Page Navigation - Always visible and consistent
     with st.sidebar:
@@ -663,7 +659,7 @@ def main():
 
 def show_horse_directory():
     """Display list of all horses with search and filtering"""
-    st.subheader("Horse Directory")
+    st.subheader("🐴 Horse Directory")
     
     # Upcoming Events Dashboard Widget
     with st.expander("📅 Upcoming Events (Next 7 Days)", expanded=False):
