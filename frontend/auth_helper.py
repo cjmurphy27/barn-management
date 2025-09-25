@@ -20,9 +20,12 @@ class StreamlitAuth:
     def __init__(self):
         # Get configuration from Streamlit secrets or environment
         self.auth_url = "https://34521247761.propelauthtest.com"
-        # Backend URL - use localhost:8002 for internal communication in Railway
-        # since both frontend and backend run in the same container
-        self.backend_url = "http://localhost:8002"
+        # Backend URL - detect Railway environment
+        import os
+        if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PORT'):
+            self.backend_url = "https://web-production-10a5d.up.railway.app"
+        else:
+            self.backend_url = "http://localhost:8002"
         self._config_loaded = False
     
     def _load_config(self):
