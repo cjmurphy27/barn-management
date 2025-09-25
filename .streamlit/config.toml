@@ -1,0 +1,17 @@
+[global]
+# Turn off file watcher to prevent the "app" and "admin" navigation
+disableWatchdogWarning = true
+
+[browser]
+# Hide the hamburger menu
+showErrorDetails = false
+
+[ui]
+# Hide the sidebar navigation that shows files
+hideTopBar = false
+hideSidebarNav = true
+
+[server]
+# Additional server settings
+headless = true
+fileWatcherType = "none"

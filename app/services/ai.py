@@ -2,8 +2,11 @@ import anthropic
 from typing import Dict, Any, List, Optional
 import json
 import logging
+from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models.horse import Horse
+from app.models.horse_document import HorseDocument, HorseDocumentAssociation
+from app.services.document_processor import document_processor
 
 logger = logging.getLogger(__name__)
 
@@ -26,33 +29,75 @@ class BarnLadyAI:
         else:
             logger.warning("ANTHROPIC_API_KEY not found in environment variables")
     
-    def analyze_horse(self, horse_data: Dict[str, Any], question: str = None, image_data: str = None, image_type: str = None) -> str:
+    def analyze_horse(self, horse_data: Dict[str, Any], question: str = None, image_data: str = None, image_type: str = None, db: Session = None) -> str:
         """Analyze a specific horse and provide insights, optionally with image analysis"""
         
         if not self.api_key_available or not self.client:
             return "AI analysis is currently unavailable. Please check that the ANTHROPIC_API_KEY environment variable is properly configured."
         
         # Create a comprehensive horse profile for the AI
-        horse_profile = self._format_horse_for_ai(horse_data)
-        
+        horse_profile = self._format_horse_for_ai(horse_data, db)
+
+        # Check if we have visual documents (PDFs and images) that might benefit from vision analysis
+        visual_documents = []
+        if db and horse_data.get('id'):
+            logger.info(f"Looking for visual documents (PDFs and images) for horse ID {horse_data['id']}")
+            from app.models.horse_document import HorseDocument, HorseDocumentAssociation
+
+            # Get both PDF and image documents
+            visual_file_types = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/tiff']
+            docs = db.query(HorseDocument).join(
+                HorseDocumentAssociation,
+                HorseDocument.id == HorseDocumentAssociation.document_id
+            ).filter(
+                HorseDocumentAssociation.horse_id == horse_data['id'],
+                HorseDocument.is_active == True,
+                HorseDocument.file_type.in_(visual_file_types)
+            ).limit(3).all()  # Limit to 3 to avoid rate limits
+
+            logger.info(f"Found {len(docs)} visual documents for vision analysis")
+            for doc in docs:
+                logger.info(f"Processing document: {doc.original_filename} ({doc.file_type}) at {doc.file_path}")
+
+                # For PDFs, use first-page-only optimization; for images, process normally
+                first_page_only = doc.file_type == 'application/pdf'
+                vision_data = document_processor.get_document_for_vision_analysis(
+                    doc.file_path,
+                    doc.file_type,
+                    first_page_only=first_page_only
+                )
+
+                if vision_data:
+                    logger.info(f"Successfully prepared {doc.original_filename} for vision analysis ({len(vision_data)} chars)")
+                    visual_documents.append({
+                        'filename': doc.original_filename,
+                        'data': vision_data,
+                        'description': doc.description or f'{doc.file_type} document'
+                    })
+                else:
+                    logger.warning(f"Failed to prepare {doc.original_filename} for vision analysis")
+
         # Build message content
         message_content = []
         
         if question:
-            if image_data:
-                prompt = f"""You are a knowledgeable equine specialist and barn manager. A user is asking about their horse and has provided a photo for analysis. Here's the horse's information:
+            if image_data or visual_documents:
+                additional_context = ""
+                if visual_documents:
+                    additional_context = f" I've also provided documents and images that may contain additional information including handwritten details."
+
+                prompt = f"""You are a knowledgeable equine specialist and barn manager. A user is asking about their horse.{additional_context} Here's the horse's information:
 
 {horse_profile}
 
 User Question: {question}
 
-Please analyze the provided photo in context of this question and the horse's information. Look for:
-- Any visible health issues, injuries, or concerns
-- Physical conformation and condition
-- Environmental factors that might affect the horse
-- Any observations that relate to the user's question
+Please analyze all provided information (including any documents or images) in context of this question. Pay special attention to:
+- Any handwritten information in documents (like age, notes, measurements)
+- Details that may not be in printed text but are visible in the documents
+- Cross-reference information between different sources
 
-Provide helpful, practical advice based on both the horse's data and what you can observe in the image. Be specific and actionable in your recommendations."""
+Provide helpful, practical advice based on all available information. Be specific and actionable in your recommendations."""
             else:
                 prompt = f"""You are a knowledgeable equine specialist and barn manager. A user is asking about their horse. Here's the horse's information:
 
@@ -92,7 +137,7 @@ Be specific and practical in your advice."""
             "type": "text",
             "text": prompt
         })
-        
+
         # Add image if provided
         if image_data:
             message_content.append({
@@ -101,6 +146,36 @@ Be specific and practical in your advice."""
                     "type": "base64",
                     "media_type": image_type,
                     "data": image_data
+                }
+            })
+
+        # Add visual documents (PDFs and images) if available
+        logger.info(f"Adding {len(visual_documents)} visual documents to AI message for vision analysis")
+        for visual_doc in visual_documents:
+            logger.info(f"Attaching document: {visual_doc['filename']} ({len(visual_doc['data'])} chars)")
+
+            # Determine the correct message type based on file type
+            if visual_doc['filename'].lower().endswith('.pdf'):
+                doc_type = "document"
+                media_type = "application/pdf"
+            else:
+                doc_type = "image"
+                # Determine image media type from filename
+                if visual_doc['filename'].lower().endswith('.png'):
+                    media_type = "image/png"
+                elif visual_doc['filename'].lower().endswith('.jpg') or visual_doc['filename'].lower().endswith('.jpeg'):
+                    media_type = "image/jpeg"
+                elif visual_doc['filename'].lower().endswith('.tiff'):
+                    media_type = "image/tiff"
+                else:
+                    media_type = "image/jpeg"  # Default fallback
+
+            message_content.append({
+                "type": doc_type,
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": visual_doc['data']
                 }
             })
 
@@ -206,16 +281,16 @@ Please provide:
             logger.error(f"Error calling Claude API: {str(e)}")
             return f"Sorry, I encountered an error while comparing the horses: {str(e)}"
     
-    def _format_horse_for_ai(self, horse_data: Dict[str, Any]) -> str:
+    def _format_horse_for_ai(self, horse_data: Dict[str, Any], db: Session = None) -> str:
         """Format horse data for AI consumption"""
-        
+
         info = f"Horse: {horse_data.get('name', 'Unknown')}"
-        
+
         if horse_data.get('barn_name'):
             info += f" (Barn name: {horse_data['barn_name']})"
-        
+
         info += "\n"
-        
+
         # Basic info
         if horse_data.get('breed'):
             info += f"Breed: {horse_data['breed']}\n"
@@ -225,7 +300,7 @@ Please provide:
             info += f"Gender: {horse_data['gender']}\n"
         if horse_data.get('color'):
             info += f"Color: {horse_data['color']}\n"
-        
+
         # Physical characteristics
         if horse_data.get('height_hands'):
             info += f"Height: {horse_data['height_hands']} hands\n"
@@ -233,7 +308,7 @@ Please provide:
             info += f"Weight: {horse_data['weight_lbs']} lbs\n"
         if horse_data.get('body_condition_score'):
             info += f"Body Condition Score: {horse_data['body_condition_score']}/9\n"
-        
+
         # Health and care
         if horse_data.get('current_health_status'):
             info += f"Current Health Status: {horse_data['current_health_status']}\n"
@@ -243,7 +318,7 @@ Please provide:
             info += f"Current Medications: {horse_data['medications']}\n"
         if horse_data.get('special_needs'):
             info += f"Special Needs: {horse_data['special_needs']}\n"
-        
+
         # Management
         if horse_data.get('current_location'):
             info += f"Location: {horse_data['current_location']}\n"
@@ -255,11 +330,11 @@ Please provide:
             info += f"Training Level: {horse_data['training_level']}\n"
         if horse_data.get('disciplines'):
             info += f"Disciplines: {horse_data['disciplines']}\n"
-        
+
         # Additional info
         if horse_data.get('notes'):
             info += f"Notes: {horse_data['notes']}\n"
-        
+
         # Status
         status_items = []
         if horse_data.get('is_retired'):
@@ -268,8 +343,75 @@ Please provide:
             status_items.append("For Sale")
         if status_items:
             info += f"Status: {', '.join(status_items)}\n"
-        
+
+        # Include document information if database session is provided
+        if db and horse_data.get('id'):
+            document_info = self._get_horse_documents_info(horse_data['id'], db)
+            if document_info:
+                info += f"\n--- DOCUMENTS & RECORDS ---\n{document_info}\n"
+
         return info
+
+    def _get_horse_documents_info(self, horse_id: int, db: Session) -> str:
+        """Fetch and format horse document information for AI context"""
+        try:
+            # Get all documents for this horse
+            documents = db.query(HorseDocument).join(
+                HorseDocumentAssociation,
+                HorseDocument.id == HorseDocumentAssociation.document_id
+            ).filter(
+                HorseDocumentAssociation.horse_id == horse_id,
+                HorseDocument.is_active == True
+            ).order_by(HorseDocument.upload_date.desc()).all()
+
+            if not documents:
+                return ""
+
+            document_sections = []
+
+            for doc in documents:
+                doc_info = f"Document: {doc.original_filename} ({doc.document_category.value})"
+
+                if doc.title and doc.title != doc.original_filename:
+                    doc_info += f" - {doc.title}"
+
+                if doc.description:
+                    doc_info += f"\nDescription: {doc.description}"
+
+                # Process document content if not already extracted
+                if not doc.extracted_text and doc.file_path:
+                    logger.info(f"Extracting text from {doc.original_filename}")
+                    extracted_text = document_processor.extract_text(doc.file_path, doc.file_type)
+                    if extracted_text:
+                        # Update the database with extracted text
+                        doc.extracted_text = extracted_text
+                        doc.processing_status = 'processed'
+                        db.commit()
+                        logger.info(f"Saved extracted text for document {doc.id}")
+
+                # Include extracted text content
+                if doc.extracted_text:
+                    doc_info += f"\nContent:\n{doc.extracted_text}"
+
+                    # For PDFs, also try vision analysis to catch handwritten content
+                    if doc.file_type == 'application/pdf':
+                        vision_data = document_processor.get_document_for_vision_analysis(doc.file_path, doc.file_type)
+                        if vision_data:
+                            doc_info += f"\n\n[Note: This document also contains visual elements that may include handwritten content - analyzing with AI vision]"
+                            # The vision analysis will be handled by the main AI analysis
+
+                elif doc.ai_summary:
+                    doc_info += f"\nSummary: {doc.ai_summary}"
+                else:
+                    doc_info += "\n(No text content available)"
+
+                document_sections.append(doc_info)
+
+            return "\n\n".join(document_sections)
+
+        except Exception as e:
+            logger.error(f"Error fetching documents for horse {horse_id}: {str(e)}")
+            return ""
 
 # Global AI service instance
 ai_service = BarnLadyAI()

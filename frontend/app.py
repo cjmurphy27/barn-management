@@ -22,6 +22,31 @@ st.markdown("""
 <style>
 /* CSS Version 3.1 - Clean sidebar with beige background and better navigation */
 
+/* Hide the app file browser navigation completely */
+.css-1d391kg, .css-1y4p8pa, .css-12oz5g7, .css-17eq0hr {
+    display: none !important;
+}
+
+/* Hide any file navigation or multi-app switcher */
+[data-testid="stSidebarNav"], .css-1lcbmhc, .css-1aumxhk, .css-10trblm {
+    display: none !important;
+}
+
+/* Hide the main menu hamburger */
+#MainMenu {
+    visibility: hidden;
+}
+
+/* Hide Streamlit footer */
+footer {
+    visibility: hidden;
+}
+
+/* Hide the top header bar that might show file navigation */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
 /* Modern clean white sidebar with subtle border */
 section[data-testid="stSidebar"] {
     background-color: #FFFFFF !important;
@@ -511,36 +536,10 @@ def show_authenticated_app():
     </style>
     """, unsafe_allow_html=True)
     
-    # Display logo and tagline
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        # Try different path approaches for the logo
-        import os
-        logo_paths = [
-            "assets/barn_lady_logo.png",
-            "./assets/barn_lady_logo.png", 
-            "frontend/assets/barn_lady_logo.png",
-            os.path.join(os.path.dirname(__file__), "assets", "barn_lady_logo.png")
-        ]
-        
-        logo_displayed = False
-        for logo_path in logo_paths:
-            try:
-                if os.path.exists(logo_path):
-                    st.image(logo_path, width=180)
-                    logo_displayed = True
-                    break
-            except:
-                continue
-                
-        if not logo_displayed:
-            # Fallback to emoji if logo not found
-            st.markdown("<div style='font-size: 50px; text-align: center; margin-right: 20px;'>🏇</div>", unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)  # Add space above tagline
-        st.markdown("<h2 style='margin-bottom: 0px; margin-left: 40px; padding-top: 15px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
-        st.markdown("---")
+    # Display tagline (logo now in sidebar)
+    st.markdown("<br>", unsafe_allow_html=True)  # Add space above tagline
+    st.markdown("<h2 style='margin-bottom: 0px; text-align: center; padding-top: 15px;'>Intelligent Barn Management System</h2>", unsafe_allow_html=True)
+    st.markdown("---")
     
     # Page Navigation - Always visible and consistent
     with st.sidebar:
@@ -1485,14 +1484,16 @@ def show_horse_documents(horse_id: int, horse_name: str):
     
     # Document upload section
     st.write("### Upload New Document")
-    
+
+    st.info("💡 **For documents with handwritten information:** Upload as JPG, PNG, or TIFF images for best AI analysis of handwritten content like ages, notes, or measurements.")
+
     col1, col2 = st.columns([2, 1])
     
     with col1:
         uploaded_file = st.file_uploader(
             "Choose a document",
-            type=['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png', 'tiff'],
-            help="Supported formats: PDF, DOCX, DOC, TXT, JPG, PNG, TIFF (Max 10MB)"
+            type=['docx', 'doc', 'txt', 'jpg', 'jpeg', 'png', 'tiff'],
+            help="📋 Text documents: DOCX, DOC, TXT | 📸 Images with handwritten content: JPG, PNG, TIFF (Max 10MB)"
         )
     
     with col2:

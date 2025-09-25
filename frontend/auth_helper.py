@@ -406,8 +406,33 @@ class StreamlitAuth:
     def show_auth_sidebar(self):
         """Show clean authentication status and controls in sidebar"""
         user = self.get_current_user()
-        
+
         with st.sidebar:
+            # Display logo at top of sidebar
+            import os
+            logo_paths = [
+                "assets/barn_lady_logo.png",
+                "./assets/barn_lady_logo.png",
+                "frontend/assets/barn_lady_logo.png",
+                os.path.join(os.path.dirname(__file__), "assets", "barn_lady_logo.png")
+            ]
+
+            logo_displayed = False
+            for logo_path in logo_paths:
+                try:
+                    if os.path.exists(logo_path):
+                        st.image(logo_path, width=160)  # Slightly smaller for sidebar
+                        logo_displayed = True
+                        break
+                except:
+                    continue
+
+            if not logo_displayed:
+                # Fallback to text
+                st.markdown("<div style='text-align: center; font-size: 24px; margin: 10px 0;'>🏇 Stable Genius</div>", unsafe_allow_html=True)
+
+            st.markdown("---")  # Separator after logo
+
             if user:
                 # User info with consistent styling matching pulldowns
                 st.markdown("**Welcome Back:**")
