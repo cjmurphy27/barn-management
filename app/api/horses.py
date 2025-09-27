@@ -16,6 +16,7 @@ async def get_horses(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     search: Optional[str] = Query(None, description="Search horses by name, breed, or location"),
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -24,8 +25,8 @@ async def get_horses(
         query = db.query(Horse)
         
         # If user is authenticated, filter by organization
-        if current_user and current_user.current_org_id:
-            query = query.filter(Horse.organization_id == current_user.current_org_id)
+        if organization_id:
+            query = query.filter(Horse.organization_id == organization_id)
         
         # Apply search if provided
         if search:
@@ -52,6 +53,7 @@ async def get_horses(
 @router.get("/horses/{horse_id}", response_model=HorseResponse)
 async def get_horse(
     horse_id: int,
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -60,8 +62,8 @@ async def get_horse(
         query = db.query(Horse).filter(Horse.id == horse_id)
         
         # If user is authenticated, filter by organization
-        if current_user and current_user.current_org_id:
-            query = query.filter(Horse.organization_id == current_user.current_org_id)
+        if organization_id:
+            query = query.filter(Horse.organization_id == organization_id)
         
         horse = query.first()
         
@@ -85,12 +87,13 @@ async def get_horse(
 @router.post("/horses/", response_model=HorseResponse, status_code=status.HTTP_201_CREATED)
 async def create_horse(
     horse_data: HorseCreate,
+    organization_id: str = Query(..., description="Organization/barn ID"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new horse"""
     try:
-        if not current_user.current_org_id:
+        if not organization_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No organization selected"
@@ -98,14 +101,14 @@ async def create_horse(
         
         # Create horse with organization ID
         horse_dict = horse_data.dict()
-        horse_dict['organization_id'] = current_user.current_org_id
+        horse_dict['organization_id'] = organization_id
         
         horse = Horse(**horse_dict)
         db.add(horse)
         db.commit()
         db.refresh(horse)
         
-        logger.info(f"Created horse {horse.name} for organization {current_user.current_org_id}")
+        logger.info(f"Created horse {horse.name} for organization {organization_id}")
         return horse
         
     except HTTPException:
@@ -122,6 +125,7 @@ async def create_horse(
 async def update_horse(
     horse_id: int,
     horse_data: HorseUpdate,
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -130,8 +134,8 @@ async def update_horse(
         query = db.query(Horse).filter(Horse.id == horse_id)
         
         # Filter by organization
-        if current_user.current_org_id:
-            query = query.filter(Horse.organization_id == current_user.current_org_id)
+        if organization_id:
+            query = query.filter(Horse.organization_id == organization_id)
         
         horse = query.first()
         
@@ -165,6 +169,7 @@ async def update_horse(
 @router.delete("/horses/{horse_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_horse(
     horse_id: int,
+    organization_id: Optional[str] = Query(None, description="Filter by organization/barn"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -173,8 +178,8 @@ async def delete_horse(
         query = db.query(Horse).filter(Horse.id == horse_id)
         
         # Filter by organization
-        if current_user.current_org_id:
-            query = query.filter(Horse.organization_id == current_user.current_org_id)
+        if organization_id:
+            query = query.filter(Horse.organization_id == organization_id)
         
         horse = query.first()
         

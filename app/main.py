@@ -79,6 +79,7 @@ app.include_router(ai_router)
 app.include_router(calendar_router)
 app.include_router(supplies_router)
 
+
 # Import and include horse documents router
 from app.api.horse_documents import router as horse_documents_router
 app.include_router(horse_documents_router, prefix="/api/v1")

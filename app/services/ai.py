@@ -413,5 +413,6 @@ Please provide:
             logger.error(f"Error fetching documents for horse {horse_id}: {str(e)}")
             return ""
 
+
 # Global AI service instance
 ai_service = BarnLadyAI()

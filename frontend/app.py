@@ -11,11 +11,13 @@ st.set_page_config(
 import os
 import requests
 import pandas as pd
+import calendar
 from datetime import date, datetime, timedelta
 from typing import Optional, Dict, Any, List
 import json
 from auth_helper import auth
 from whiteboard import show_whiteboard_page
+from i18n_helper import i18n, t
 
 # Custom CSS for button styling and to hide automatic navigation
 st.markdown("""
@@ -109,6 +111,66 @@ section[data-testid="stSidebar"] div[data-baseweb="button"]:hover {
 /* Remove unnecessary horizontal lines */
 section[data-testid="stSidebar"] hr {
     display: none !important;
+}
+
+/* Modern pill-style navigation tabs */
+.stTabs [data-baseweb="tab-list"] {
+    display: flex !important;
+    gap: 12px !important;
+    background: transparent !important;
+    border-bottom: none !important;
+    padding: 0 !important;
+    margin-bottom: 24px !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+}
+
+/* Navigation Tab Styling - Pill Shape */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 25px !important;
+    padding: 8px 20px !important;
+    margin: 0 4px !important;
+    height: 40px !important;
+    color: #6c757d !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: none !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: #e9ecef !important;
+    border-color: #adb5bd !important;
+    color: #495057 !important;
+    transform: translateY(-1px) !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background-color: #4a90e2 !important;
+    border-color: #4a90e2 !important;
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"]:hover {
+    background-color: #357abd !important;
+    border-color: #357abd !important;
+}
+
+/* Remove default tab underline */
+.stTabs [data-baseweb="tab-highlight"] {
+    display: none !important;
+}
+
+/* Style the tab panel */
+div[data-testid="stTabs"] [data-baseweb="tab-panel"] {
+    padding-top: 0 !important;
 }
 
 /* Primary buttons - all variations */
@@ -287,6 +349,7 @@ div.stButton button:hover,
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 # API Configuration
 # For Railway deployment, use localhost since both frontend and backend run in same container
@@ -539,7 +602,7 @@ def show_authenticated_app():
     
     # Page Navigation - Always visible and consistent
     with st.sidebar:
-        st.markdown("**Navigate to:**")
+        st.markdown(f"**{t('navigation.navigate_to')}**")
         
         # Initialize current page
         current_page = "Horse Directory"
@@ -569,8 +632,17 @@ def show_authenticated_app():
             else:
                 current_page = "Horse Profile"
         
-        # Always show the same navigation options
-        all_pages = ["Horse Directory", "Add New Horse", "📋 Message Board", "📅 Calendar", "📦 Supplies", "🤖 AI Assistant", "Reports", "⚙️ Admin"]
+        # Always show the same navigation options (translated)
+        all_pages = [
+            t("navigation.horse_directory"),
+            t("navigation.add_new_horse"),
+            t("navigation.message_board"),
+            t("navigation.calendar"),
+            t("navigation.supplies"),
+            t("navigation.ai_assistant"),
+            t("navigation.reports"),
+            t("navigation.admin")
+        ]
         
         # Add horse-specific pages when viewing a horse
         if 'selected_horse_id' in st.session_state and st.session_state.selected_horse_id:
@@ -588,9 +660,12 @@ def show_authenticated_app():
             index=default_index,
             label_visibility="collapsed"
         )
+
+        # Add language switcher
+        i18n.language_selector()
     
     # Clear horse context when navigating away from horse pages
-    if page == "Horse Directory" and 'selected_horse_id' in st.session_state:
+    if page == t("navigation.horse_directory") and 'selected_horse_id' in st.session_state:
         # Clear horse selection when explicitly navigating to Horse Directory
         del st.session_state['selected_horse_id']
         if 'selected_horse_name' in st.session_state:
@@ -601,25 +676,25 @@ def show_authenticated_app():
     
     
     # Route to appropriate page
-    if page == "Horse Directory":
+    if page == t("navigation.horse_directory"):
         show_horse_directory()
-    elif page == "Add New Horse":
+    elif page == t("navigation.add_new_horse"):
         show_add_horse_form()
-    elif page == "📋 Message Board":
+    elif page == t("navigation.message_board"):
         show_whiteboard()
-    elif page == "📅 Calendar":
+    elif page == t("navigation.calendar"):
         show_calendar()
-    elif page == "📦 Supplies":
+    elif page == t("navigation.supplies"):
         show_supplies()
     elif page == "Horse Profile":
         show_horse_profile()
     elif page == "Edit Horse":
         show_edit_horse_form()
-    elif page == "🤖 AI Assistant":
+    elif page == t("navigation.ai_assistant"):
         show_ai_assistant()
-    elif page == "Reports":
+    elif page == t("navigation.reports"):
         show_reports()
-    elif page == "⚙️ Admin":
+    elif page == t("navigation.admin"):
         show_admin_page()
 
 # Main App
@@ -651,18 +726,23 @@ def main():
     else:
         # User not authenticated - show simplified login interface
         auth.show_login_interface()
-        
+
+        # Add language switcher for unauthenticated users too
+        with st.sidebar:
+            i18n.language_selector("login_language_selector")
+
         st.markdown("---")
-        st.markdown("**Need an account?** Contact your barn administrator to get access.")
-        st.markdown("**New barn setup?** Contact us to set up your barn management system.")
+        st.markdown(f"**{t('auth.need_account')}**")
+        st.markdown(f"**{t('auth.new_barn_setup')}**")
         st.stop()  # Stop execution here - don't load the rest of the app
 
 def show_horse_directory():
     """Display list of all horses with search and filtering"""
-    st.subheader("🐴 Horse Directory")
+    st.subheader(t("horse_directory.title"))
+
     
     # Upcoming Events Dashboard Widget
-    with st.expander("📅 Upcoming Events (Next 7 Days)", expanded=False):
+    with st.expander(t("horse_directory.upcoming_events"), expanded=False):
         # Get upcoming events with organization filter
         upcoming_params = {"days_ahead": 7, "limit": 5}
         if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
@@ -678,27 +758,58 @@ def show_horse_directory():
                 }
                 icon = type_icons.get(event["event_type"], "📅")
                 event_dt = datetime.fromisoformat(event['scheduled_date'])
-                horse_info = f"🐴 {event['horse_name']}" if event.get('horse_name') else ""
 
-                # Build HTML parts conditionally
-                horse_html = f'<p style="margin: 0; color: #666; font-size: 0.9em;">{horse_info}</p>' if horse_info else ''
+                # Aggressively clean HTML and CSS from text fields
+                import html
+                import re
 
-                st.markdown(f"""
-                <div style="border: none; border-radius: 12px; padding: 20px; margin: 10px 0; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h4 style="margin: 0 0 5px 0; font-size: 1.1em; font-weight: bold; color: #000000;">{icon} {event['title']}</h4>
-                        {horse_html}
-                    </div>
-                    <div style="text-align: right;">
-                        <p style="margin: 0; color: #000000; font-size: 0.9em; font-weight: 500;">📅 {event_dt.strftime('%m/%d')} at {event_dt.strftime('%I:%M %p')}</p>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                def clean_text(text):
+                    """Remove HTML tags, CSS styles, and other markup from text"""
+                    if not text:
+                        return ''
+
+                    text = str(text)
+
+                    # Remove HTML/XML tags
+                    text = re.sub(r'<[^>]+>', '', text)
+
+                    # Remove CSS style attributes that might be lingering
+                    text = re.sub(r'style\s*=\s*["\'][^"\']*["\']', '', text)
+
+                    # Remove any remaining angle brackets and CSS-like content
+                    text = re.sub(r'</?[^>]*>', '', text)
+
+                    # Remove CSS property patterns
+                    text = re.sub(r'[a-zA-Z-]+\s*:\s*[^;]+;?', '', text)
+
+                    # Clean up extra whitespace
+                    text = re.sub(r'\s+', ' ', text).strip()
+
+                    # HTML escape any remaining special characters
+                    return html.escape(text)
+
+                # Clean the title and horse name
+                safe_title = clean_text(event.get('title', 'Untitled Event'))
+                safe_horse_name = clean_text(event.get('horse_name', '')) if event.get('horse_name') else ''
+
+                # Use Streamlit native components instead of complex HTML
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
+
+                    with col1:
+                        st.write(f"**{icon} {safe_title}**")
+                        if safe_horse_name:
+                            st.caption(f"🐴 {safe_horse_name}")
+
+                    with col2:
+                        st.write(f"📅 {event_dt.strftime('%m/%d')} at {event_dt.strftime('%I:%M %p')}")
+
+                    st.divider()
             
             if len(upcoming["upcoming_events"]) >= 5:
-                st.write("*View more in the Calendar tab*")
+                st.write(f"*{t('horse_directory.view_more_calendar')}*")
         else:
-            st.write("No upcoming events in the next 7 days")
+            st.write(t('horse_directory.no_upcoming_events'))
     
     st.write("")  # Add some spacing
     
@@ -706,16 +817,16 @@ def show_horse_directory():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        search_term = st.text_input("🔍 Search horses", placeholder="Name, breed, owner...")
+        search_term = st.text_input(t('horse_directory.search_horses'), placeholder=t('horse_directory.search_placeholder'))
     
     with col2:
-        active_only = st.checkbox("Active horses only", value=True)
+        active_only = st.checkbox(t('horse_directory.active_horses_only'), value=True)
     
     with col3:
-        sort_by = st.selectbox("Sort by", ["age_years", "weight_lbs", "color", "gender"])
+        sort_by = st.selectbox(t('horse_directory.sort_by'), ["age_years", "weight_lbs", "color", "gender"])
     
     with col4:
-        sort_order = st.selectbox("Order", ["asc", "desc"])
+        sort_order = st.selectbox(t('horse_directory.order'), ["asc", "desc"])
     
     # Fetch horses
     params = {
@@ -733,26 +844,26 @@ def show_horse_directory():
     horses = api_request("GET", "/api/v1/horses/", params)
     
     if not horses:
-        st.warning("No horses found or unable to connect to API.")
+        st.warning(t('horse_directory.no_horses_found'))
         return
     
     # Display Summary Stats
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Total Horses", len(horses))
+        st.metric(t('horse_directory.total_horses'), len(horses))
     
     with col2:
         active_horses = [h for h in horses if h.get('is_active', True)]
-        st.metric("Active Horses", len(active_horses))
+        st.metric(t('horse_directory.active_horses'), len(active_horses))
     
     with col3:
         retired_horses = [h for h in horses if h.get('is_retired', False)]
-        st.metric("Retired Horses", len(retired_horses))
+        st.metric(t('horse_directory.retired_horses'), len(retired_horses))
     
     with col4:
         for_sale_horses = [h for h in horses if h.get('is_for_sale', False)]
-        st.metric("For Sale", len(for_sale_horses))
+        st.metric(t('horse_directory.for_sale'), len(for_sale_horses))
     
     st.divider()
     
@@ -798,15 +909,23 @@ def show_horse_directory():
                                     info_col, photo_col = st.columns([2, 1])
 
                                     with info_col:
+                                        # Pre-evaluate translations
+                                        barn_name_label = t('horse_details.barn_name')
+                                        breed_label = t('horse_details.breed')
+                                        age_label = t('horse_details.age')
+                                        location_label = t('horse_details.location')
+                                        stall_label = t('horse_details.stall')
+                                        owner_label = t('horse_details.owner')
+
                                         st.markdown(f"""
                                         <div style="padding: 20px;">
                                             <h3 style="margin: 0 0 15px 0; font-size: 1.5em; font-weight: bold; color: #000000;">{horse.get('name', 'Unknown')} <span style="font-size: 0.8em;">{status_color}</span></h3>
-                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
-                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
-                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
-                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
-                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
-                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{barn_name_label}</strong> {horse.get('barn_name', 'N/A')}</p>
+                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{breed_label}</strong> {horse.get('breed', 'Unknown')}</p>
+                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{age_label}</strong> {horse.get('age_display', 'Unknown')}</p>
+                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{location_label}</strong> {horse.get('current_location', 'Not specified')}</p>
+                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{stall_label}</strong> {horse.get('stall_number', 'N/A')}</p>
+                                            <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{owner_label}</strong> {horse.get('owner_name', 'Not specified')}</p>
                                         </div>
                                         """, unsafe_allow_html=True)
 
@@ -821,19 +940,28 @@ def show_horse_directory():
                 
                 # If no background image, use native Streamlit components
                 if not has_background:
+                    # Pre-evaluate translations
+                    barn_name_label = t('horse_details.barn_name')
+                    breed_label = t('horse_details.breed')
+                    age_label = t('horse_details.age')
+                    location_label = t('horse_details.location')
+                    stall_label = t('horse_details.stall')
+                    owner_label = t('horse_details.owner')
+                    no_photo_text = t('horse_directory.no_photo')
+
                     with st.container():
                         st.markdown(f"""
                         <div style="border: none; border-radius: 12px; padding: 0; margin: 15px 0; min-height: 250px; background-color: white; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; align-items: stretch;">
                             <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: center;">
                                 <h3 style="margin: 0 0 15px 0; font-size: 1.5em; font-weight: bold; color: #000000;">{horse.get('name', 'Unknown')} <span style="font-size: 0.8em;">{status_color}</span></h3>
-                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Barn Name:</strong> {horse.get('barn_name', 'N/A')}</p>
-                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Breed:</strong> {horse.get('breed', 'Unknown')}</p>
-                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Age:</strong> {horse.get('age_display', 'Unknown')}</p>
-                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Location:</strong> {horse.get('current_location', 'Not specified')}</p>
-                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Stall:</strong> {horse.get('stall_number', 'N/A')}</p>
-                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>Owner:</strong> {horse.get('owner_name', 'Not specified')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{barn_name_label}</strong> {horse.get('barn_name', 'N/A')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{breed_label}</strong> {horse.get('breed', 'Unknown')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{age_label}</strong> {horse.get('age_display', 'Unknown')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{location_label}</strong> {horse.get('current_location', 'Not specified')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{stall_label}</strong> {horse.get('stall_number', 'N/A')}</p>
+                                <p style="margin: 5px 0; color: #000000; font-size: 0.9em;"><strong>{owner_label}</strong> {horse.get('owner_name', 'Not specified')}</p>
                             </div>
-                            <div style="width: 200px; border-radius: 0 12px 12px 0; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #888; font-style: italic;">No Photo</div>
+                            <div style="width: 200px; border-radius: 0 12px 12px 0; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #888; font-style: italic;">{no_photo_text}</div>
                         </div>
                         """, unsafe_allow_html=True)
                 
@@ -864,39 +992,36 @@ def show_horse_directory():
 
 def show_ai_assistant():
     """AI Assistant page with multiple interaction modes"""
-    st.header("🤖 AI Horse Care Assistant")
-    
-    st.markdown("""
-    Welcome to your AI Horse Care Assistant! Ask questions about horse management, 
-    get personalized recommendations for your horses, or compare different horses.
-    """)
+    st.header(t("ai_assistant.title"))
+
+    st.markdown(t("ai_assistant.welcome_message"))
     
     # Check if we have a specific horse to analyze
     if 'ai_horse_id' in st.session_state and st.session_state.ai_horse_id:
-        st.info(f"💡 Ready to analyze **{st.session_state.ai_horse_name}**! Ask a question below or get a full analysis.")
+        st.info(t("ai_assistant.ready_to_analyze", horse_name=st.session_state.ai_horse_name))
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔍 Get Full AI Analysis", type="primary"):
-                with st.spinner(f"Analyzing {st.session_state.ai_horse_name}..."):
+            if st.button(t("ai_assistant.get_full_analysis_button"), type="primary"):
+                with st.spinner(t("ai_assistant.analyzing_horse", horse_name=st.session_state.ai_horse_name)):
                     result = api_request("POST", "/api/v1/ai/analyze-horse", {
                         "horse_id": st.session_state.ai_horse_id
                     })
                     
                     if result and 'response' in result:
-                        st.subheader(f"🐴 AI Analysis for {st.session_state.ai_horse_name}")
+                        st.subheader(t("ai_assistant.ai_analysis_for", horse_name=st.session_state.ai_horse_name))
                         st.write(result['response'])
                     else:
-                        st.error("Failed to get AI analysis")
+                        st.error(t("ai_assistant.failed_ai_analysis"))
         
         with col2:
-            if st.button("❌ Clear Horse Selection"):
+            if st.button(t("ai_assistant.clear_horse_selection")):
                 del st.session_state['ai_horse_id']
                 del st.session_state['ai_horse_name']
                 st.rerun()
     
     # Tabs for different AI interactions
-    tab1, tab2, tab3, tab4 = st.tabs(["💬 Ask Question", "🔍 Horse Analysis", "⚖️ Compare Horses", "📚 General Questions"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Ask Question", "Horse Analysis", "Compare Horses", "General Questions"])
     
     with tab1:
         st.subheader("💬 Ask About a Specific Horse")
@@ -1220,7 +1345,7 @@ def show_horse_profile():
     st.divider()
     
     # Horse Information Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📋 Basic Info", "📏 Physical", "🏠 Management", "🏥 Health", "📝 Notes", "📚 Documents"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Basic Info", "Physical", "Management", "Health", "Notes", "Documents"])
     
     with tab1:
         col1, col2 = st.columns(2)
@@ -1483,13 +1608,63 @@ def show_horse_documents(horse_id: int, horse_name: str):
 
     st.info("💡 **For documents with handwritten information:** Upload as JPG, PNG, or TIFF images for best AI analysis of handwritten content like ages, notes, or measurements.")
 
+    # Photo upload section with improved styling
+    st.markdown("**📸 Upload documents and images for AI analysis**")
+
+    # Add CSS styling to match Ask AI page
+    st.markdown("""
+    <style>
+    /* Target the file uploader container */
+    [data-testid="stFileUploader"] {
+        background-color: white !important;
+    }
+
+    /* Target the drag and drop area */
+    [data-testid="stFileUploader"] > div > div > div {
+        background-color: white !important;
+        background: white !important;
+        border: 2px dashed #1f77b4 !important;
+    }
+
+    /* Target the inner content */
+    [data-testid="stFileUploader"] section {
+        background-color: white !important;
+        background: white !important;
+    }
+
+    /* Remove blue background from file uploader */
+    .stFileUploader section {
+        background-color: white !important;
+        background: white !important;
+    }
+
+    .stFileUploader section div {
+        background-color: white !important;
+        background: white !important;
+    }
+
+    /* Hide the Browse files button inside the drag area */
+    [data-testid="stFileUploader"] button {
+        display: none !important;
+    }
+
+    /* Hide the button text in the file uploader */
+    [data-testid="stFileUploader"] section button {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     col1, col2 = st.columns([2, 1])
-    
+
     with col1:
+        st.markdown("**📁 Browse Files**")
         uploaded_file = st.file_uploader(
-            "Choose a document",
+            "",  # Remove the label since we have it above
             type=['docx', 'doc', 'txt', 'jpg', 'jpeg', 'png', 'tiff'],
-            help="📋 Text documents: DOCX, DOC, TXT | 📸 Images with handwritten content: JPG, PNG, TIFF (Max 10MB)"
+            help="📋 Text documents: DOCX, DOC, TXT | 📸 Images with handwritten content: JPG, PNG, TIFF (Max 10MB)",
+            key=f"document_upload_{horse_id}",
+            label_visibility="collapsed"
         )
     
     with col2:
@@ -2095,139 +2270,76 @@ def show_whiteboard():
 
 def show_calendar():
     """Display calendar view and event management"""
-    st.header("📅 Event Calendar")
-    
-    # Tabs for different views
-    tab1, tab2, tab3 = st.tabs(["Calendar View", "Upcoming Events", "Add Event"])
-    
-    with tab1:
-        st.subheader("📅 Monthly Calendar")
-        
-        # Month selector
-        col1, col2 = st.columns(2)
-        with col1:
-            current_year = datetime.now().year
-            year_options = [current_year - 1, current_year, current_year + 1]
-            selected_year = st.selectbox("Year", year_options, index=1)
-        with col2:
-            current_month = datetime.now().month
-            selected_month = st.selectbox("Month", 
-                                        [(i, datetime(2025, i, 1).strftime('%B')) for i in range(1, 13)],
-                                        format_func=lambda x: x[1],
-                                        index=current_month - 1)
-        
-        # Get events for the month with organization filter
-        month_params = {
-            "year": selected_year,
-            "month": selected_month[0]
-        }
+    st.header(t("calendar.title"))
+
+    # View selector for different calendar views - reordered to make Upcoming Events first
+    view_options = [t("calendar.upcoming_events_tab"), t("calendar.calendar_view_tab"), t("calendar.add_event_tab")]
+
+    # Determine which view should be active
+    if 'calendar_tab' not in st.session_state:
+        st.session_state.calendar_tab = t("calendar.upcoming_events_tab")  # Default to Upcoming Events
+
+    # Create view selector
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        if st.button(t("calendar.upcoming_events_tab"),
+                    type="primary" if st.session_state.calendar_tab == t("calendar.upcoming_events_tab") else "secondary",
+                    use_container_width=True,
+                    key="calendar_upcoming_btn"):
+            st.session_state.calendar_tab = t("calendar.upcoming_events_tab")
+            st.rerun()
+
+    with col2:
+        if st.button(t("calendar.calendar_view_tab"),
+                    type="primary" if st.session_state.calendar_tab == t("calendar.calendar_view_tab") else "secondary",
+                    use_container_width=True,
+                    key="calendar_view_btn"):
+            st.session_state.calendar_tab = t("calendar.calendar_view_tab")
+            st.rerun()
+
+    with col3:
+        if st.button(t("calendar.add_event_tab"),
+                    type="primary" if st.session_state.calendar_tab == t("calendar.add_event_tab") else "secondary",
+                    use_container_width=True,
+                    key="calendar_add_btn"):
+            st.session_state.calendar_tab = t("calendar.add_event_tab")
+            st.rerun()
+
+    st.markdown("---")
+
+    # Show content based on selected tab
+    if st.session_state.calendar_tab == t("calendar.upcoming_events_tab"):
+        # Upcoming Events (now first tab)
+        st.subheader(t("calendar.upcoming_events_title"))
+
+        # Get upcoming events (filtered by current barn)
+        upcoming_params = {"days_ahead": 14}
         if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
-            month_params["organization_id"] = st.session_state.selected_barn_id
-        
-        events = api_request("GET", "/api/v1/calendar/view/month", month_params)
-        
-        if events and "events" in events:
-            st.subheader(f"Events in {selected_month[1]} {selected_year}")
-            
-            if events["events"]:
-                # Group events by date
-                events_by_date = {}
-                for event in events["events"]:
-                    event_date = datetime.fromisoformat(event["scheduled_date"]).date()
-                    if event_date not in events_by_date:
-                        events_by_date[event_date] = []
-                    events_by_date[event_date].append(event)
-                
-                # Display events by date
-                for event_date in sorted(events_by_date.keys()):
-                    st.write(f"**{event_date.strftime('%A, %B %d, %Y')}**")
-                    
-                    for event in events_by_date[event_date]:
-                        # Color code by event type
-                        type_colors = {
-                            "veterinary": "🏥",
-                            "farrier": "🔨",
-                            "dental": "🦷",
-                            "supply_delivery": "🚛",
-                            "training": "⭐",
-                            "breeding": "💕",
-                            "health_treatment": "💊",
-                            "other": "📅"
-                        }
+            upcoming_params["organization_id"] = st.session_state.selected_barn_id
+        upcoming = api_request("GET", "/api/v1/calendar/upcoming", upcoming_params)
 
-                        icon = type_colors.get(event["event_type"], "📅")
-                        status_color = "🔴" if event["is_overdue"] else "🟢"
-                        horse_info = f"{event['horse_name']}" if event["horse_name"] else ""
-                        provider_info = f"👤 {event['provider_name']}" if event.get('provider_name') else ""
-                        location_info = event.get('location', 'No location')
-                        time_info = datetime.fromisoformat(event['scheduled_date']).strftime('%I:%M %p')
-
-                        with st.container():
-                            event_col1, event_col2 = st.columns([4, 1])
-
-                            with event_col1:
-                                st.markdown(f"""
-                                <div style="background-color: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin: 10px 0;">
-                                    <h4 style="margin: 0 0 10px 0; color: #000;">{icon} {event['title']}</h4>
-                                    <p style="margin: 5px 0; color: #666; font-size: 0.9em;">📍 {location_info} | ⏰ {time_info}</p>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            with event_col2:
-                                st.write("")  # Spacing
-                                st.write(f"{status_color}")
-                                if horse_info:
-                                    st.write(f"🐴 {horse_info}")
-                                if provider_info:
-                                    st.write(provider_info)
-                    
-                # Summary stats
-                st.subheader("📊 Month Summary")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Total Events", events["total_events"])
-                
-                with col2:
-                    overdue_count = sum(1 for e in events["events"] if e["is_overdue"])
-                    st.metric("Overdue Events", overdue_count)
-                
-                with col3:
-                    upcoming_count = sum(1 for e in events["events"] if not e["is_overdue"])
-                    st.metric("Upcoming Events", upcoming_count)
-                
-            else:
-                st.info(f"No events scheduled for {selected_month[1]} {selected_year}")
-        else:
-            st.error("Unable to load calendar events")
-    
-    with tab2:
-        st.subheader("🔜 Upcoming Events")
-        
-        # Get upcoming events
-        upcoming = api_request("GET", "/api/v1/calendar/upcoming", {"days_ahead": 14})
-        
         if upcoming and "upcoming_events" in upcoming:
             if upcoming["upcoming_events"]:
                 for event in upcoming["upcoming_events"]:
                     # Event card
                     with st.container():
                         col1, col2, col3 = st.columns([3, 2, 1])
-                        
+
                         with col1:
                             st.write(f"**{event['title']}**")
                             if event['horse_name']:
-                                st.write(f"Horse: {event['horse_name']}")
+                                st.write(f"{t('calendar.horse_label')} {event['horse_name']}")
                             if event.get('provider_name'):
-                                st.write(f"Provider: {event['provider_name']}")
-                        
+                                st.write(f"{t('calendar.provider_label')} {event['provider_name']}")
+
                         with col2:
                             event_datetime = datetime.fromisoformat(event['scheduled_date'])
                             st.write(f"📅 {event_datetime.strftime('%b %d, %Y')}")
                             st.write(f"⏰ {event_datetime.strftime('%I:%M %p')}")
                             if event.get('duration_display'):
                                 st.write(f"⏱️ {event['duration_display']}")
-                        
+
                         with col3:
                             edit_col, delete_col = st.columns(2)
                             with edit_col:
@@ -2238,40 +2350,40 @@ def show_calendar():
                                 if st.button("🗑️", key=f"delete_event_{event['id']}", help="Delete event"):
                                     st.session_state['deleting_event_id'] = event['id']
                                     st.rerun()
-                    
+
                     st.write("---")
             else:
-                st.info("No upcoming events in the next 14 days")
+                st.info(t("calendar.no_upcoming_14_days"))
         else:
             st.error("Unable to load upcoming events")
-        
+
         # Handle event editing
         if 'editing_event_id' in st.session_state:
             event_id = st.session_state['editing_event_id']
             st.write("---")
             st.subheader("✏️ Edit Event")
             show_edit_event_form(event_id)
-        
+
         # Handle event deletion
         if 'deleting_event_id' in st.session_state:
             event_id = st.session_state['deleting_event_id']
             st.write("---")
             st.subheader("🗑️ Delete Event")
-            
+
             # Get event details for confirmation
             event_detail = api_request("GET", f"/api/v1/calendar/events/{event_id}")
-            
+
             if event_detail:
                 st.warning(f"Are you sure you want to delete the event: **{event_detail['title']}**?")
                 st.write(f"📅 Scheduled for: {datetime.fromisoformat(event_detail['scheduled_date']).strftime('%B %d, %Y at %I:%M %p')}")
-                
+
                 col1, col2, col3 = st.columns([1, 1, 2])
-                
+
                 with col1:
                     if st.button("❌ Cancel", type="secondary"):
                         del st.session_state['deleting_event_id']
                         st.rerun()
-                
+
                 with col2:
                     if st.button("🗑️ Delete", type="primary"):
                         result = api_request("DELETE", f"/api/v1/calendar/events/{event_id}")
@@ -2286,8 +2398,126 @@ def show_calendar():
                 if st.button("❌ Cancel"):
                     del st.session_state['deleting_event_id']
                     st.rerun()
-    
-    with tab3:
+
+    elif st.session_state.calendar_tab == t("calendar.calendar_view_tab"):
+        st.subheader(t("calendar.calendar_view_title"))
+
+        # Date selection
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_year = st.selectbox(t("calendar.year_label"), range(2020, 2030), index=datetime.now().year-2020)
+        with col2:
+            months = [(i, datetime(2025, i, 1).strftime('%B')) for i in range(1, 13)]
+            selected_month = st.selectbox(t("calendar.month_label"), months, index=datetime.now().month-1, format_func=lambda x: x[1])
+
+        # Get events for the selected month using upstream endpoint (filtered by current barn)
+        events_params = {"days_ahead": 30}
+        if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+            events_params["organization_id"] = st.session_state.selected_barn_id
+        events = api_request("GET", "/api/v1/calendar/upcoming", events_params)
+
+        if events and "upcoming_events" in events:
+            # Filter events for the selected month/year
+            event_list = events["upcoming_events"]
+            month_events = []
+
+            for event in event_list:
+                event_date = datetime.fromisoformat(event["scheduled_date"])
+                if event_date.year == selected_year and event_date.month == selected_month[0]:
+                    month_events.append(event)
+
+            # Calendar display
+            cal = calendar.monthcalendar(selected_year, selected_month[0])
+
+            # Month header
+            st.markdown(f"### {selected_month[1]} {selected_year}")
+
+            # Weekday headers
+            cols = st.columns(7)
+            weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            for i, day in enumerate(weekdays):
+                cols[i].write(f"**{day}**")
+
+            # Calendar grid
+            for week in cal:
+                cols = st.columns(7)
+                for i, day in enumerate(week):
+                    if day == 0:
+                        cols[i].write("")
+                    else:
+                        # Check if there are events on this day
+                        day_events = [e for e in month_events if
+                                    datetime.fromisoformat(e["scheduled_date"]).day == day]
+
+                        if day_events:
+                            with cols[i]:
+                                st.button(f"**{day}**\n📅 {len(day_events)}",
+                                        key=f"day_{day}_{selected_month[0]}_{selected_year}",
+                                        help=f"{len(day_events)} event(s)")
+                        else:
+                            cols[i].write(str(day))
+
+            # Events list for selected month
+            st.write("---")
+            st.subheader(t("calendar.events_month", month=selected_month[1]))
+
+            if month_events:
+                for event in month_events:
+                    event_dt = datetime.fromisoformat(event["scheduled_date"])
+
+                    # Clean the title and horse name to prevent HTML injection
+                    import re
+
+                    # Function to clean text
+                    def clean_text(text):
+                        if not text:
+                            return ""
+                        # Remove any HTML tags
+                        clean = re.sub(r'<[^>]+>', '', str(text))
+                        # Remove any remaining special characters that could be problematic
+                        clean = re.sub(r'[<>&"\']', '', clean)
+                        return clean.strip()
+
+                    safe_title = clean_text(event.get("title", ""))
+                    safe_horse_name = clean_text(event.get("horse_name", ""))
+
+                    # Use Streamlit native components instead of complex HTML
+                    with st.container():
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            # Determine icon based on event type (simplified)
+                            icon = "📅"
+                            if "vet" in safe_title.lower():
+                                icon = "🏥"
+                            elif "farrier" in safe_title.lower():
+                                icon = "🔨"
+                            elif "feed" in safe_title.lower():
+                                icon = "🌾"
+
+                            st.write(f"**{icon} {safe_title}**")
+                            if safe_horse_name:
+                                st.caption(f"🐴 {safe_horse_name}")
+                        with col2:
+                            st.write(f"📅 {event_dt.strftime('%m/%d')} at {event_dt.strftime('%I:%M %p')}")
+                        st.divider()
+
+                # Summary metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    total_count = len(month_events)
+                    st.metric(t("calendar.total_events"), total_count)
+                with col2:
+                    overdue_count = sum(1 for e in month_events if e.get("is_overdue", False))
+                    st.metric(t("calendar.overdue_events"), overdue_count)
+                with col3:
+                    upcoming_count = sum(1 for e in month_events if not e.get("is_overdue", False))
+                    st.metric(t("calendar.upcoming_events"), upcoming_count)
+
+            else:
+                st.info(t("calendar.no_events_month", month=selected_month[1], year=selected_year))
+        else:
+            st.error(t("calendar.unable_load_events"))
+    elif st.session_state.calendar_tab == t("calendar.add_event_tab"):
         st.subheader("➕ Add New Event")
         show_add_event_form()
 
@@ -2309,12 +2539,15 @@ def show_add_event_form():
                 ("health_treatment", "💊 Health Treatment"),
                 ("other", "📅 Other")
             ], format_func=lambda x: x[1])
-        
+
         with col2:
-            # Get horses for dropdown
-            horses = api_request("GET", "/api/v1/horses/", {"active_only": True})
+            # Get horses for dropdown (filtered by current barn)
+            horses_params = {}
+            if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                horses_params["organization_id"] = st.session_state.selected_barn_id
+            horses = api_request("GET", "/api/v1/horses/", horses_params)
             horse_options = [("", "No specific horse")] + [(str(h["id"]), h["name"]) for h in horses] if horses else []
-            
+
             selected_horse = st.selectbox("Horse", horse_options, format_func=lambda x: x[1])
             priority = st.selectbox("Priority", ["low", "medium", "high", "urgent"], index=1)
         
@@ -2382,6 +2615,9 @@ def show_add_event_form():
             if result:
                 st.success(f"✅ Successfully added event: {title}")
                 st.balloons()
+                # Switch to Upcoming Events tab after adding event
+                st.session_state.calendar_tab = t("calendar.upcoming_events_tab")
+                st.success("✅ Event added successfully!")
                 st.rerun()
             else:
                 st.error("Failed to add event. Please check your inputs and try again.")
@@ -2437,8 +2673,11 @@ def show_edit_event_form(event_id: int):
                                     index=current_type_index)
         
         with col2:
-            # Get horses for dropdown
-            horses = api_request("GET", "/api/v1/horses/", {"active_only": True})
+            # Get horses for dropdown (filtered by current barn)
+            horses_params = {}
+            if hasattr(st.session_state, 'selected_barn_id') and st.session_state.selected_barn_id:
+                horses_params["organization_id"] = st.session_state.selected_barn_id
+            horses = api_request("GET", "/api/v1/horses/", horses_params)
             horse_options = [("", "No specific horse")] + [(str(h["id"]), h["name"]) for h in horses] if horses else []
             
             # Find current horse selection
@@ -2545,10 +2784,11 @@ def show_edit_event_form(event_id: int):
 
 def show_supplies():
     """Display supply tracking and management"""
-    st.header("📦 Supply Tracking & Inventory")
+    st.header(t("supplies.title"))
+    st.info(t("supplies.supplies_coming_soon"))
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "📋 Inventory", "🧾 Receipt Scanner", "📈 Analytics"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Dashboard", "Inventory", "Receipt Scanner", "Analytics"])
     
     with tab1:
         st.subheader("📊 Supply Dashboard")
@@ -3109,22 +3349,95 @@ def show_edit_supply_form(supply_id: int):
 
 def show_receipt_scanner():
     """AI-powered receipt scanner"""
-    
-    st.write("📷 Upload a receipt image and let AI automatically extract items and costs!")
-    
-    # Receipt upload
-    uploaded_receipt = st.file_uploader(
-        "Choose receipt image",
-        type=['png', 'jpg', 'jpeg'],
-        help="Upload a clear photo of your barn supply receipt"
-    )
-    
-    if uploaded_receipt is not None:
+
+    st.write("📷 Upload a receipt image or take a photo and let AI automatically extract items and costs!")
+
+    # Photo upload section with improved styling
+    st.markdown("**📸 Optional: Upload a receipt for automatic processing**")
+
+    # Add CSS styling to match Ask AI page
+    st.markdown("""
+    <style>
+    /* Target the file uploader container */
+    [data-testid="stFileUploader"] {
+        background-color: white !important;
+    }
+
+    /* Target the drag and drop area */
+    [data-testid="stFileUploader"] > div > div > div {
+        background-color: white !important;
+        background: white !important;
+        border: 2px dashed #1f77b4 !important;
+    }
+
+    /* Target the inner content */
+    [data-testid="stFileUploader"] section {
+        background-color: white !important;
+        background: white !important;
+    }
+
+    /* Remove blue background from file uploader */
+    .stFileUploader section {
+        background-color: white !important;
+        background: white !important;
+    }
+
+    .stFileUploader section div {
+        background-color: white !important;
+        background: white !important;
+    }
+
+    /* Hide the Browse files button inside the drag area */
+    [data-testid="stFileUploader"] button {
+        display: none !important;
+    }
+
+    /* Hide the button text in the file uploader */
+    [data-testid="stFileUploader"] section button {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Create two columns for the buttons
+    col_browse, col_camera = st.columns(2)
+
+    uploaded_receipt = None
+    camera_receipt = None
+
+    with col_browse:
+        st.markdown("**📁 Browse Files**")
+        uploaded_receipt = st.file_uploader(
+            "",  # Remove the label since we have it above
+            type=['png', 'jpg', 'jpeg'],
+            help="Upload a clear photo of your barn supply receipt",
+            key="receipt_file_upload",
+            label_visibility="collapsed"
+        )
+
+    with col_camera:
+        st.markdown("**📷 Camera**")
+        # Camera toggle button
+        if 'receipt_camera_enabled' not in st.session_state:
+            st.session_state.receipt_camera_enabled = False
+
+        if st.button("📷 Enable Camera" if not st.session_state.receipt_camera_enabled else "📷 Disable Camera",
+                    type="secondary", key="receipt_camera_toggle"):
+            st.session_state.receipt_camera_enabled = not st.session_state.receipt_camera_enabled
+            st.rerun()
+
+        if st.session_state.receipt_camera_enabled:
+            camera_receipt = st.camera_input("Take a photo", help="Take a photo directly with your camera", key="receipt_camera")
+
+    # Use either uploaded file or camera photo
+    receipt_photo = uploaded_receipt if uploaded_receipt else camera_receipt
+
+    if receipt_photo is not None:
         # Show image preview
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.image(uploaded_receipt, caption="Receipt Preview", width=300)
+            st.image(receipt_photo, caption="Receipt Preview", width=300)
         
         with col2:
             # Optional processing hints
@@ -3145,7 +3458,7 @@ def show_receipt_scanner():
                         import requests
                         
                         # Prepare the file data
-                        files = {"receipt_image": (uploaded_receipt.name, uploaded_receipt.getvalue(), uploaded_receipt.type)}
+                        files = {"receipt_image": (receipt_photo.name, receipt_photo.getvalue(), receipt_photo.type)}
                         
                         # Prepare form data
                         data = {}
@@ -3390,16 +3703,16 @@ def show_supply_analytics():
 
 def show_reports():
     """Display reports and analytics"""
-    st.header("📊 Reports & Analytics")
-    st.info("Reports and analytics will be implemented in future phases.")
+    st.header(t("reports.title"))
+    st.info(t("reports.reports_coming_soon"))
 
 def show_admin_page():
     """TEMPORARY admin page for Railway migration"""
-    st.header("⚙️ Admin Tools")
-    st.warning("🚨 **TEMPORARY**: This admin page is for Railway migration only and will be removed after migration.")
+    st.header(t("admin.title"))
+    st.warning(t("admin.temporary_warning"))
 
-    st.subheader("Photo Migration")
-    st.info("Click the button below to migrate horse photos from Base64 to FastAPI storage on Railway.")
+    st.subheader(t("admin.photo_migration"))
+    st.info(t("admin.photo_migration_info"))
 
     if st.button("🔄 Run Photo Migration", type="primary"):
         with st.spinner("Running migration... This may take a few minutes."):

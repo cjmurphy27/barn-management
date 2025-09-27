@@ -22,7 +22,7 @@ def show_admin_page():
     st.success("✅ Admin access granted")
     
     # Tabs for different admin functions
-    tab1, tab2, tab3, tab4 = st.tabs(["👥 User Management", "🏇 Organization Settings", "📊 System Overview", "🐴 Horse Assignment"])
+    tab1, tab2, tab3, tab4 = st.tabs(["User Management", "Organization Settings", "System Overview", "Horse Assignment"])
     
     with tab1:
         st.header("User Management")
@@ -148,8 +148,8 @@ def show_admin_page():
                 # Show current assignments
                 with st.expander("Current Horse Assignments", expanded=True):
                     for i, horse in enumerate(horses):
-                        barn_id = horse.get('barn_id', 'None')
-                        st.write(f"{i+1}. **{horse.get('name', 'Unknown')}** (ID: {horse.get('id')}) - Barn: `{barn_id}`")
+                        organization_id = horse.get('organization_id', 'None')
+                        st.write(f"{i+1}. **{horse.get('name', 'Unknown')}** (ID: {horse.get('id')}) - Organization: `{organization_id}`")
                 
                 # Assignment strategy
                 st.subheader("📋 Recommended Barn Assignment Strategy")
@@ -167,7 +167,7 @@ def show_admin_page():
                     assignments.append({
                         'horse_id': horse['id'],
                         'horse_name': horse['name'],
-                        'barn_id': 'fernbell_barn',
+                        'organization_id': 'fernbell_barn',
                         'barn_name': 'Fernbell'
                     })
                 
@@ -196,7 +196,7 @@ def show_admin_page():
                         
                         for i, assignment in enumerate(assignments):
                             horse_id = assignment['horse_id']
-                            barn_id = assignment['barn_id']
+                            organization_id = assignment['organization_id']
                             horse_name = assignment['horse_name']
                             barn_name = assignment['barn_name']
                             
@@ -205,7 +205,7 @@ def show_admin_page():
                             try:
                                 update_response = requests.put(
                                     f"{backend_url}/api/v1/horses/{horse_id}",
-                                    json={"barn_id": barn_id}
+                                    json={"organization_id": organization_id}
                                 )
                                 
                                 if update_response.status_code == 200:

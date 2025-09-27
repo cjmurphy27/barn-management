@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from datetime import datetime
 from typing import Dict, List, Optional
+from i18n_helper import t
 
 # Configuration
 API_BASE_URL = st.secrets.get("API_BASE_URL", "http://localhost:8002")
@@ -19,10 +20,10 @@ def get_current_organization():
 
 def create_post_form():
     """Display form to create a new message board post"""
-    st.subheader("📝 Create New Post")
+    st.subheader(t("message_board.create_new_post"))
 
     # Photo upload functionality outside the form
-    st.markdown("**📸 Optional: Add a photo to your post**")
+    st.markdown(f"**{t('message_board.optional_photo')}**")
 
     # Add custom CSS to style the file uploader
     st.markdown("""
@@ -75,7 +76,7 @@ def create_post_form():
     camera_photo = None
 
     with col_browse:
-        st.markdown("**📁 Browse Files**")
+        st.markdown(f"**{t('message_board.browse_files')}**")
         uploaded_file = st.file_uploader(
             "",  # Remove the label since we have it above
             type=['png', 'jpg', 'jpeg', 'webp'],
@@ -85,7 +86,7 @@ def create_post_form():
         )
 
     with col_camera:
-        st.markdown("**📷 Camera**")
+        st.markdown(f"**{t('message_board.camera')}**")
         # Camera toggle button
         if 'whiteboard_camera_enabled' not in st.session_state:
             st.session_state.whiteboard_camera_enabled = False
@@ -230,10 +231,12 @@ def display_post_card(post: Dict):
             emoji = category_emoji.get(post.get("category", "general"), "📝")
 
             title = post.get("title", "Untitled")
+            # Add pin indicator if needed
+            display_title = title
             if post.get("is_pinned"):
-                title = f"📌 {title}"
+                display_title = f"📌 {display_title}"
 
-            st.markdown(f"### {emoji} {title}")
+            st.markdown(f"### {emoji} {display_title}")
 
         with col2:
             # Category badge
@@ -252,7 +255,8 @@ def display_post_card(post: Dict):
                     st.caption("📅 Recently")
 
         # Post content
-        st.markdown(post.get("content", ""))
+        post_content = post.get("content", "")
+        st.markdown(post_content)
 
         # Tags
         tags = post.get("tags", [])
@@ -462,7 +466,9 @@ def display_post_details(post_id: int):
 
                     with col1:
                         st.markdown(f"**{comment.get('author_name', 'Unknown')}**")
-                        st.markdown(comment.get("content", ""))
+                        # Display comment content
+                        comment_content = comment.get("content", "")
+                        st.markdown(comment_content)
 
                     with col2:
                         created_at = comment.get("created_at")
@@ -594,11 +600,11 @@ def show_posts_content(organization_id: str):
 
 def show_whiteboard_page():
     """Main message board page"""
-    st.title("📋 Barn Message Board")
+    st.title(t("message_board.title"))
 
     # Check authentication
     if "access_token" not in st.session_state:
-        st.error("Please log in to access the message board")
+        st.error(t("message_board.login_required"))
         return
 
     # Check organization selection - fix the logic to match main app
@@ -627,7 +633,7 @@ def show_whiteboard_page():
         return
 
     # Main message board interface using tabs
-    tab1, tab2 = st.tabs(["📋 Posts", "✏️ Create Post"])
+    tab1, tab2 = st.tabs([t("message_board.posts_tab"), t("message_board.create_post_tab")])
 
     with tab1:
         show_posts_content(organization_id)
