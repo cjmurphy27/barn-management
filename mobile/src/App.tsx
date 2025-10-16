@@ -64,6 +64,12 @@ function App() {
 
   const handleOAuthCallback = async (code: string) => {
     try {
+      // Use environment-aware redirect URI (must match Login component)
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      const redirectUri = isProduction
+        ? window.location.origin  // Use current Railway URL
+        : 'http://localhost:3001' // Local development
+
       // First, try to exchange code with backend (normal flow)
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/auth/exchange-code`, {
         method: 'POST',
@@ -72,7 +78,7 @@ function App() {
         },
         body: JSON.stringify({
           code,
-          redirect_uri: 'http://localhost:3001' // Must match the redirect_uri used in Login
+          redirect_uri: redirectUri // Must match the redirect_uri used in Login
         })
       })
 

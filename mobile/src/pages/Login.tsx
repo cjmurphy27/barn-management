@@ -9,10 +9,15 @@ export default function Login({ onLogin }: LoginProps) {
     const mobileState = `mobile:${baseState}` // Prefix with mobile flag
     localStorage.setItem('oauth_state', mobileState)
 
-    // Use exact desktop redirect URI (without mobile parameter)
+    // Use environment-aware redirect URI
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    const redirectUri = isProduction
+      ? window.location.origin  // Use current Railway URL
+      : 'http://localhost:3001' // Local development
+
     const params = new URLSearchParams({
       'client_id': '4a68fdae569be0db02111668f191c188', // Same as desktop version
-      'redirect_uri': 'http://localhost:3001', // Mobile app port
+      'redirect_uri': redirectUri,
       'response_type': 'code',
       'scope': 'openid email profile',
       'state': mobileState // Mobile flag encoded in state
