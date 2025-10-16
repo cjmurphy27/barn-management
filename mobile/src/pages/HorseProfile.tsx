@@ -1,0 +1,915 @@
+import { useState, useEffect } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { horseApi, medicalApi, feedApi, trainingApi, apiClient } from '../services/api'
+
+interface Horse {
+  id: string
+  name: string
+  barn_name?: string
+  breed?: string
+  color?: string
+  gender?: 'mare' | 'stallion' | 'gelding'
+  age_years?: number
+  age_display?: string
+  height_hands?: string
+  weight_lbs?: number
+  body_condition_score?: number
+
+  // Registration & Identification
+  registration_number?: string
+  registration_organization?: string
+  microchip_number?: string
+  passport_number?: string
+
+  // Location & Management
+  current_location?: string
+  stall_number?: string
+  pasture_group?: string
+  boarding_type?: string
+  owner_name?: string
+  owner_contact?: string
+
+  // Training & Disciplines
+  training_level?: string
+  disciplines?: string
+  trainer_name?: string
+  trainer_contact?: string
+
+  // Care Schedule
+  feeding_schedule?: string
+  exercise_schedule?: string
+  feeding_notes?: string
+  training_notes?: string
+
+  // Health Information
+  current_health_status?: 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Critical'
+  allergies?: string
+  medications?: string
+  special_needs?: string
+  veterinarian_name?: string
+  veterinarian_contact?: string
+  farrier_name?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+
+  // Health History
+  last_vet_visit?: string
+  last_dental?: string
+  last_farrier?: string
+
+  // Additional Fields
+  markings?: string
+  physical_notes?: string
+  notes?: string
+  special_instructions?: string
+  profile_photo_path?: string
+  is_active?: boolean
+  is_retired?: boolean
+  is_for_sale?: boolean
+  created_at: string
+  updated_at: string
+
+  // Legacy/Mobile fields
+  status?: 'active' | 'inactive' | 'sold'
+  photo_url?: string
+}
+
+interface Document {
+  id: string
+  filename: string
+  file_type: string
+  file_size: number
+  upload_date: string
+  category: string
+  description?: string
+}
+
+interface User {
+  user_id: string
+  email: string
+  organizations: Array<{
+    barn_id: string
+    barn_name: string
+    user_role: string
+    permissions: string[]
+  }>
+}
+
+interface HorseProfileProps {
+  user: User
+  selectedBarnId: string | null
+}
+
+export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps) {
+  const { id } = useParams<{ id: string }>()
+  const [horse, setHorse] = useState<Horse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('basic')
+  const [photoData, setPhotoData] = useState<string | null>(null)
+  const [photoLoading, setPhotoLoading] = useState(false)
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [uploadingDocument, setUploadingDocument] = useState(false)
+
+  useEffect(() => {
+    if (id && user && selectedBarnId) {
+      loadHorseData()
+    }
+  }, [id, user, selectedBarnId])
+
+  const loadHorseData = async () => {
+    if (!selectedBarnId) {
+      console.log('No barn selected, skipping horse loading')
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) {
+        throw new Error('Not authenticated')
+      }
+
+      apiClient.setToken(accessToken)
+
+      // Use the selected barn ID directly
+      const response = await horseApi.getById(id!, selectedBarnId)
+
+      if (response.success) {
+        const horseData = response.data as Horse
+        setHorse(horseData)
+
+        // Load horse photo if profile_photo_path exists
+        if (horseData.profile_photo_path) {
+          loadHorsePhoto(horseData.id, selectedBarnId)
+        }
+
+        // Load documents
+        loadDocuments(horseData.id, selectedBarnId)
+      } else {
+        throw new Error(response.error || 'Failed to load horse data')
+      }
+    } catch (error) {
+      console.error('Failed to load horse:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load horse')
+    }
+
+    setLoading(false)
+  }
+
+  const loadHorsePhoto = async (horseId: string, organizationId: string) => {
+    setPhotoLoading(true)
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) return
+
+      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+        ? {}
+        : { 'Authorization': `Bearer ${accessToken}` }
+
+      const photoUrl = `${import.meta.env.VITE_API_URL}/horses/${horseId}/photo?organization_id=${organizationId}`
+      const response = await fetch(photoUrl, { headers })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const photoDataUrl = URL.createObjectURL(blob)
+        setPhotoData(photoDataUrl)
+      }
+    } catch (error) {
+      console.error('Failed to load horse photo:', error)
+    }
+    setPhotoLoading(false)
+  }
+
+  const loadDocuments = async (horseId: string, organizationId: string) => {
+    setDocumentsLoading(true)
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) return
+
+      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+        ? {}
+        : { 'Authorization': `Bearer ${accessToken}` }
+
+      const documentsUrl = `${import.meta.env.VITE_API_URL}/horses/${horseId}/documents?organization_id=${organizationId}`
+      const response = await fetch(documentsUrl, { headers })
+
+      if (response.ok) {
+        const documentsData = await response.json()
+        setDocuments(documentsData.documents || [])
+      }
+    } catch (error) {
+      console.error('Failed to load documents:', error)
+    }
+    setDocumentsLoading(false)
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !horse || !selectedBarnId) return
+
+    setUploadingDocument(true)
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) {
+        throw new Error('Not authenticated')
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'general')
+      formData.append('description', file.name)
+
+      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+        ? {}
+        : { 'Authorization': `Bearer ${accessToken}` }
+
+      const uploadUrl = `${import.meta.env.VITE_API_URL}/horses/${horse.id}/documents?organization_id=${selectedBarnId}`
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers,
+        body: formData
+      })
+
+      if (response.ok) {
+        // Reload documents
+        loadDocuments(horse.id, selectedBarnId)
+      } else {
+        throw new Error('Upload failed')
+      }
+    } catch (error) {
+      console.error('Failed to upload document:', error)
+    }
+    setUploadingDocument(false)
+    // Reset file input
+    event.target.value = ''
+  }
+
+  const deleteDocument = async (documentId: string) => {
+    if (!horse || !selectedBarnId) return
+
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) return
+
+      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+        ? {}
+        : { 'Authorization': `Bearer ${accessToken}` }
+
+      const deleteUrl = `${import.meta.env.VITE_API_URL}/horses/${horse.id}/documents/${documentId}?organization_id=${selectedBarnId}`
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers
+      })
+
+      if (response.ok) {
+        // Reload documents
+        loadDocuments(horse.id, selectedBarnId)
+      }
+    } catch (error) {
+      console.error('Failed to delete document:', error)
+    }
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const getFileIcon = (fileType: string) => {
+    const type = fileType.toLowerCase()
+    if (type.includes('pdf')) return '📄'
+    if (type.includes('image')) return '🖼️'
+    if (type.includes('video')) return '🎥'
+    if (type.includes('text') || type.includes('document')) return '📝'
+    return '📎'
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800'
+      case 'inactive': return 'bg-yellow-100 text-yellow-800'
+      case 'sold': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getGenderIcon = (gender?: string) => {
+    switch (gender) {
+      case 'mare': return '♀'
+      case 'stallion': return '♂'
+      case 'gelding': return '⚲'
+      default: return '?'
+    }
+  }
+
+  const getHealthStatusColor = (status: string) => {
+    switch (status) {
+      case 'Excellent': return 'bg-green-100 text-green-800'
+      case 'Good': return 'bg-blue-100 text-blue-800'
+      case 'Fair': return 'bg-yellow-100 text-yellow-800'
+      case 'Poor': return 'bg-orange-100 text-orange-800'
+      case 'Critical': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getHealthStatusEmoji = (status: string) => {
+    switch (status) {
+      case 'Excellent': return '🟢'
+      case 'Good': return '🔵'
+      case 'Fair': return '🟡'
+      case 'Poor': return '🟠'
+      case 'Critical': return '🔴'
+      default: return '⚪'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading horse...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 mb-4">
+          <svg className="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Horse</h3>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <div className="space-x-3">
+          <button
+            onClick={loadHorseData}
+            className="btn-primary"
+          >
+            Try Again
+          </button>
+          <Link
+            to="/horses"
+            className="btn-secondary"
+          >
+            Back to Horses
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (!horse) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Horse Not Found</h3>
+        <p className="text-gray-600 mb-4">The horse you're looking for doesn't exist.</p>
+        <Link to="/horses" className="btn-primary">
+          Back to Horses
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Back Button */}
+      <div className="flex items-center justify-between">
+        <Link
+          to="/horses"
+          className="flex items-center text-primary-600 hover:text-primary-700"
+        >
+          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+          </svg>
+          Back to Horses
+        </Link>
+        <div className="flex items-center space-x-3">
+          <Link
+            to={`/horses/${horse.id}/ai`}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2 px-4 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-colors flex items-center space-x-2"
+          >
+            <span>🤖</span>
+            <span>Ask AI</span>
+          </Link>
+          {horse.status && (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(horse.status)}`}>
+              {horse.status}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Horse Header */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-start space-x-4">
+          {/* Horse Photo */}
+          <div className="flex-shrink-0">
+            {photoLoading ? (
+              <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+              </div>
+            ) : photoData ? (
+              <img
+                src={photoData}
+                alt={horse.name}
+                className="w-24 h-24 rounded-lg object-cover"
+              />
+            ) : horse.photo_url ? (
+              <img
+                src={horse.photo_url}
+                alt={horse.name}
+                className="w-24 h-24 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-24 h-24 bg-primary-100 rounded-lg flex items-center justify-center">
+                <span className="text-primary-600 font-semibold text-2xl">
+                  {getGenderIcon(horse.gender)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Horse Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{horse.name}</h1>
+                {horse.barn_name && (
+                  <p className="text-lg text-gray-600 font-medium">{horse.barn_name}</p>
+                )}
+              </div>
+              {horse.current_health_status && (
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${getHealthStatusColor(horse.current_health_status)}`}>
+                  {getHealthStatusEmoji(horse.current_health_status)} {horse.current_health_status}
+                </div>
+              )}
+            </div>
+            <div className="mt-2 space-y-1">
+              {horse.breed && (
+                <p className="text-gray-600">
+                  <span className="font-medium">Breed:</span> {horse.breed}
+                </p>
+              )}
+              {horse.age_display && (
+                <p className="text-gray-600">
+                  <span className="font-medium">Age:</span> {horse.age_display}
+                </p>
+              )}
+              {horse.color && (
+                <p className="text-gray-600">
+                  <span className="font-medium">Color:</span> {horse.color}
+                </p>
+              )}
+              {horse.gender && (
+                <p className="text-gray-600">
+                  <span className="font-medium">Gender:</span> {horse.gender}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="border-b border-gray-200 overflow-x-auto">
+          <nav className="-mb-px flex space-x-8 px-6 min-w-max">
+            {[
+              { id: 'basic', name: 'Basic Info' },
+              { id: 'physical', name: 'Physical' },
+              { id: 'management', name: 'Management' },
+              { id: 'health', name: 'Health' },
+              { id: 'notes', name: 'Notes' },
+              { id: 'documents', name: 'Documents' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`${
+                  activeTab === tab.id
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex-shrink-0`}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {activeTab === 'basic' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {horse.registration_number && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Registration Number</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.registration_number}</dd>
+                  </div>
+                )}
+                {horse.registration_organization && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Registry</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.registration_organization}</dd>
+                  </div>
+                )}
+                {horse.microchip_number && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Microchip</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.microchip_number}</dd>
+                  </div>
+                )}
+                {horse.passport_number && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Passport</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.passport_number}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Status</dt>
+                  <dd className="mt-1 text-sm text-gray-900">
+                    {horse.is_active ? 'Active' : 'Inactive'}
+                    {horse.is_retired && ' • Retired'}
+                    {horse.is_for_sale && ' • For Sale'}
+                  </dd>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 border-t pt-4">
+                <p>Created: {new Date(horse.created_at).toLocaleDateString()}</p>
+                <p>Updated: {new Date(horse.updated_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'physical' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {horse.height_hands && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Height</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.height_hands} hands</dd>
+                  </div>
+                )}
+                {horse.weight_lbs && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Weight</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.weight_lbs} lbs</dd>
+                  </div>
+                )}
+                {horse.body_condition_score && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Body Condition Score</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{horse.body_condition_score}/9</dd>
+                  </div>
+                )}
+              </div>
+              {horse.markings && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 mb-2">Markings</dt>
+                  <dd className="text-sm text-gray-900">{horse.markings}</dd>
+                </div>
+              )}
+              {horse.physical_notes && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 mb-2">Physical Notes</dt>
+                  <dd className="text-sm text-gray-900">{horse.physical_notes}</dd>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'management' && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Location & Care</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {horse.current_location && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Current Location</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.current_location}</dd>
+                    </div>
+                  )}
+                  {horse.stall_number && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Stall Number</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.stall_number}</dd>
+                    </div>
+                  )}
+                  {horse.pasture_group && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Pasture Group</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.pasture_group}</dd>
+                    </div>
+                  )}
+                  {horse.boarding_type && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Boarding Type</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.boarding_type}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Owner & Training</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {horse.owner_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Owner</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.owner_name}</dd>
+                      {horse.owner_contact && (
+                        <dd className="text-xs text-gray-600">{horse.owner_contact}</dd>
+                      )}
+                    </div>
+                  )}
+                  {horse.trainer_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Trainer</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.trainer_name}</dd>
+                      {horse.trainer_contact && (
+                        <dd className="text-xs text-gray-600">{horse.trainer_contact}</dd>
+                      )}
+                    </div>
+                  )}
+                  {horse.training_level && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Training Level</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.training_level}</dd>
+                    </div>
+                  )}
+                  {horse.disciplines && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Disciplines</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.disciplines}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Schedule</h3>
+                <div className="space-y-3">
+                  {horse.feeding_schedule && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Feeding Schedule</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.feeding_schedule}</dd>
+                    </div>
+                  )}
+                  {horse.exercise_schedule && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Exercise Schedule</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.exercise_schedule}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'health' && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Current Health</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {horse.allergies && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Allergies</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.allergies}</dd>
+                    </div>
+                  )}
+                  {horse.medications && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Current Medications</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.medications}</dd>
+                    </div>
+                  )}
+                  {horse.special_needs && (
+                    <div className="col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">Special Needs</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.special_needs}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Veterinary Team</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {horse.veterinarian_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Veterinarian</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.veterinarian_name}</dd>
+                      {horse.veterinarian_contact && (
+                        <dd className="text-xs text-gray-600">{horse.veterinarian_contact}</dd>
+                      )}
+                    </div>
+                  )}
+                  {horse.farrier_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Farrier</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.farrier_name}</dd>
+                    </div>
+                  )}
+                  {horse.emergency_contact_name && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Emergency Contact</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.emergency_contact_name}</dd>
+                      {horse.emergency_contact_phone && (
+                        <dd className="text-xs text-gray-600">{horse.emergency_contact_phone}</dd>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Recent Care</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {horse.last_vet_visit && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Last Vet Visit</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_vet_visit).toLocaleDateString()}</dd>
+                    </div>
+                  )}
+                  {horse.last_dental && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Last Dental</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_dental).toLocaleDateString()}</dd>
+                    </div>
+                  )}
+                  {horse.last_farrier && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Last Farrier</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_farrier).toLocaleDateString()}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'notes' && (
+            <div className="space-y-6">
+              {horse.notes && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 mb-2">General Notes</dt>
+                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.notes}</dd>
+                </div>
+              )}
+              {horse.special_instructions && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 mb-2">Special Instructions</dt>
+                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.special_instructions}</dd>
+                </div>
+              )}
+              {horse.feeding_notes && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 mb-2">Feeding Notes</dt>
+                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.feeding_notes}</dd>
+                </div>
+              )}
+              {horse.training_notes && (
+                <div>
+                  <dt className="text-sm font-medium text-gray-500 mb-2">Training Notes</dt>
+                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.training_notes}</dd>
+                </div>
+              )}
+              {!horse.notes && !horse.special_instructions && !horse.feeding_notes && !horse.training_notes && (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No notes available</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'documents' && (
+            <div className="space-y-6">
+              {/* Upload Section */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="mt-4">
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <span className="mt-2 block text-sm font-medium text-gray-900">
+                        {uploadingDocument ? 'Uploading...' : 'Upload a document'}
+                      </span>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        onChange={handleFileUpload}
+                        disabled={uploadingDocument}
+                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mov"
+                      />
+                    </label>
+                    <p className="mt-1 text-xs text-gray-500">
+                      PDF, DOC, TXT, images, videos up to 10MB
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents List */}
+              {documentsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading documents...</p>
+                </div>
+              ) : documents.length === 0 ? (
+                <div className="text-center py-8">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No documents</h3>
+                  <p className="mt-1 text-sm text-gray-500">Upload your first document to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <span className="text-2xl">{getFileIcon(doc.file_type)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {doc.filename}
+                          </p>
+                          <div className="flex items-center space-x-2 text-xs text-gray-500">
+                            <span>{formatFileSize(doc.file_size)}</span>
+                            <span>•</span>
+                            <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
+                            {doc.category && (
+                              <>
+                                <span>•</span>
+                                <span className="capitalize">{doc.category}</span>
+                              </>
+                            )}
+                          </div>
+                          {doc.description && (
+                            <p className="text-xs text-gray-600 truncate mt-1">
+                              {doc.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            // Download document
+                            const downloadUrl = `${import.meta.env.VITE_API_URL}/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`
+                            const accessToken = localStorage.getItem('access_token')
+                            const headers: Record<string, string> = accessToken && accessToken !== 'dev_token_placeholder' ? { 'Authorization': `Bearer ${accessToken}` } : {}
+
+                            fetch(downloadUrl, { headers })
+                              .then(response => response.blob())
+                              .then(blob => {
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = doc.filename
+                                a.click()
+                                URL.revokeObjectURL(url)
+                              })
+                              .catch(console.error)
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this document?')) {
+                              deleteDocument(doc.id)
+                            }
+                          }}
+                          className="p-1 text-red-400 hover:text-red-600"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
