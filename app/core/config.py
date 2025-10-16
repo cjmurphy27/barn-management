@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     
     # API Settings
     API_V1_PREFIX: str = Field(default="/api/v1", description="API version 1 prefix")
+    # Updated CORS to include Railway mobile app URL
     CORS_ORIGINS: list = Field(default=["http://localhost:8501", "http://localhost:3000", "https://web-production-9e440.up.railway.app"], description="CORS allowed origins")
     
     # Authentication Settings (PropelAuth integration)
