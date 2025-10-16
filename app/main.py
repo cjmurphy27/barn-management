@@ -28,12 +28,31 @@ security = HTTPBearer(auto_error=False)
 
 def get_jwt_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
     """Get user data from JWT token (custom authentication)"""
+    logger.info(f"get_jwt_user called with credentials: {credentials}")
     if not credentials:
+        logger.info("No credentials provided")
         return None
 
     try:
-        import jwt
         token = credentials.credentials
+
+        # Handle development mode token
+        if token == "dev_token_placeholder":
+            logger.info("Development mode authentication bypass activated")
+            return {
+                "user_id": "dev-user-123",
+                "email": "dev@example.com",
+                "organizations": [
+                    {
+                        "barn_id": "dev-barn-123",
+                        "barn_name": "Development Barn",
+                        "user_role": "Owner",
+                        "permissions": ["all"]
+                    }
+                ]
+            }
+
+        import jwt
         # Parse JWT without verification to extract user data
         decoded_token = jwt.decode(token, options={"verify_signature": False})
 
@@ -537,25 +556,144 @@ async def validate_propelauth_token(request_data: dict):
         logger.error(f"PropelAuth token validation error: {str(e)}")
         return {"success": False, "error": str(e)}
 
-@app.get("/api/v1/auth/login")
+@app.post("/api/v1/auth/login")
+async def login(request_data: dict):
+    """Simple email/password login using PropelAuth API"""
+    try:
+        email = request_data.get("email", "")
+        password = request_data.get("password", "")
+
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
+
+        # Use PropelAuth's User Management API to authenticate
+        import requests
+
+        # PropelAuth login endpoint (using their API key for backend auth)
+        login_url = f"{settings.PROPELAUTH_URL}/api/backend/v1/authenticate_user"
+
+        headers = {
+            "Authorization": f"Bearer {settings.PROPELAUTH_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        auth_data = {
+            "email": email,
+            "password": password
+        }
+
+        logger.info(f"Attempting login for email: {email}")
+
+        response = requests.post(login_url, json=auth_data, headers=headers)
+
+        logger.info(f"Login response status: {response.status_code}")
+
+        if response.status_code == 200:
+            auth_response = response.json()
+
+            # Extract user data and create access token
+            user_data = {
+                "user_id": auth_response.get("user_id"),
+                "email": auth_response.get("email"),
+                "organizations": []
+            }
+
+            # Get user's organization data
+            org_info = auth_response.get("org_id_to_org_info", {})
+            for org_id, org_data in org_info.items():
+                barn_info = {
+                    "barn_id": org_id,
+                    "barn_name": org_data.get("org_name", "Unknown Barn"),
+                    "user_role": org_data.get("user_role", "Member"),
+                    "permissions": org_data.get("user_permissions", [])
+                }
+                user_data["organizations"].append(barn_info)
+
+            # Generate a simple JWT token for the mobile app
+            import jwt
+            import time
+
+            token_payload = {
+                "user_id": user_data["user_id"],
+                "email": user_data["email"],
+                "org_id_to_org_member_info": org_info,
+                "exp": int(time.time()) + (24 * 60 * 60)  # 24 hours
+            }
+
+            # Use a simple secret for development (in production, use proper secret)
+            access_token = jwt.encode(token_payload, "mobile-app-secret", algorithm="HS256")
+
+            logger.info(f"Login successful for {email}")
+
+            return {
+                "access_token": access_token,
+                "user": user_data
+            }
+        elif response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        else:
+            logger.error(f"PropelAuth login failed: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=500, detail="Authentication service error")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/v1/auth/login-test")
+async def test_login(request_data: dict):
+    """Test endpoint with actual login functionality"""
+    try:
+        email = request_data.get("email", "")
+        password = request_data.get("password", "")
+
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
+
+        # For now, return a simple success response for testing
+        # TODO: Replace with actual PropelAuth integration
+        return {
+            "access_token": "test-token-123",
+            "user": {
+                "user_id": "test-user-123",
+                "email": email,
+                "organizations": [
+                    {
+                        "barn_id": "test-barn-123",
+                        "barn_name": "Test Barn",
+                        "user_role": "Owner",
+                        "permissions": ["all"]
+                    }
+                ]
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Test login error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/v1/auth/login-redirect")
 async def initiate_login():
     """Initiate PropelAuth OAuth login flow through backend"""
     from fastapi.responses import RedirectResponse
     import urllib.parse
-    
+
     # Use PropelAuth's hosted login page (same as working frontend)
     # TODO: For production, configure proper OAuth with backend callback
     redirect_uri = "http://localhost:8501/?auth=callback"  # Point back to frontend
-    
-    # Build PropelAuth OAuth URL 
+
+    # Build PropelAuth OAuth URL
     login_url = f"{settings.PROPELAUTH_URL}/login"
     params = {
         "redirect_uri": redirect_uri
     }
-    
+
     full_login_url = f"{login_url}?{urllib.parse.urlencode(params)}"
     logger.info(f"Redirecting to PropelAuth OAuth login: {full_login_url}")
-    
+
     return RedirectResponse(url=full_login_url)
 
 @app.get("/api/v1/auth/callback")
@@ -686,6 +824,24 @@ async def validate_session(request_data: dict):
     except Exception as e:
         logger.error(f"Session validation error: {str(e)}")
         return {"success": False, "error": str(e)}
+
+@app.get("/api/v1/auth/user/dev")
+async def get_dev_user_info():
+    """Development endpoint - returns mock user data for testing"""
+    # Force server reload
+    logger.info("Development endpoint accessed successfully!")
+    return {
+        "user_id": "dev-user-123",
+        "email": "dev@example.com",
+        "organizations": [
+            {
+                "barn_id": "dev-barn-123",
+                "barn_name": "Development Barn",
+                "user_role": "Owner",
+                "permissions": ["all"]
+            }
+        ]
+    }
 
 @app.get("/api/v1/horses/")
 async def get_horses(

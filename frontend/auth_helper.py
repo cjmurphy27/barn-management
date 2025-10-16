@@ -121,11 +121,20 @@ class StreamlitAuth:
             # Try the newer API
             query_params = st.query_params
 
-
         # Check for authorization code in URL parameters
         auth_code = query_params.get('code')
         state = query_params.get('state')
         error = query_params.get('error')
+
+        # Check if this is a mobile app redirect request via state parameter
+        state_value = state[0] if isinstance(state, list) else state if state else None
+
+        if auth_code and state_value == 'mobile_redirect':
+            # This is a mobile app OAuth callback, redirect to mobile app
+            mobile_code = auth_code[0] if isinstance(auth_code, list) else auth_code
+            st.write("Redirecting to mobile app...")
+            st.markdown(f'<meta http-equiv="refresh" content="0;url=http://localhost:3001/?code={mobile_code}" />', unsafe_allow_html=True)
+            return
 
         if error:
             st.error(f"Authentication error: {error[0] if isinstance(error, list) else error}")

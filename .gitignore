@@ -68,3 +68,15 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Node.js (for mobile app)
+mobile/node_modules/
+mobile/dist/
+mobile/.env
+mobile/.env.local
+mobile/.env.development.local
+mobile/.env.test.local
+mobile/.env.production.local
+mobile/npm-debug.log*
+mobile/yarn-debug.log*
+mobile/yarn-error.log*
