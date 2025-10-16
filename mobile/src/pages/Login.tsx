@@ -23,6 +23,14 @@ export default function Login({ onLogin }: LoginProps) {
       'state': mobileState // Mobile flag encoded in state
     })
 
+    // Debug environment variables
+    console.log('Environment variables check:')
+    console.log('VITE_AUTH_URL:', import.meta.env.VITE_AUTH_URL)
+    console.log('VITE_API_URL:', import.meta.env.VITE_API_URL)
+    console.log('VITE_REDIRECT_URI:', import.meta.env.VITE_REDIRECT_URI)
+    console.log('isProduction:', isProduction)
+    console.log('redirectUri:', redirectUri)
+
     const loginUrl = `${import.meta.env.VITE_AUTH_URL}/propelauth/oauth/authorize?${params.toString()}`
 
     console.log('Redirecting to PropelAuth OAuth (matching desktop):', loginUrl)
