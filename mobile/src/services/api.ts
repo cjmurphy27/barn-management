@@ -526,66 +526,6 @@ export const suppliesApi = {
   update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/supplies/${id}`, { ...data, organization_id: organizationId }),
   delete: (id: string, organizationId: string) => apiClient.delete(`/api/v1/supplies/${id}?organization_id=${organizationId}`),
   processReceipt: (formData: FormData, organizationId: string) => {
-    // For FormData, we need to handle it differently in development mode
-    const isDevelopment = apiClient['token'] === 'dev_token_placeholder' ||
-                         apiClient['baseUrl'].includes('localhost:8002') ||
-                         import.meta.env.DEV
-
-    if (isDevelopment) {
-      // Return mock receipt processing result directly
-      return Promise.resolve({
-        success: true,
-        data: {
-          vendor_name: "Chipaway Stables, Inc.",
-          purchase_date: new Date().toISOString().split('T')[0],
-          total_amount: 1402.83,
-          line_items: [
-            {
-              description: "Corn 1st cut",
-              quantity: "25",
-              unit: "bags",
-              unit_price: 18.50,
-              category: "feed_nutrition"
-            },
-            {
-              description: "Premium Horse Feed",
-              quantity: "10",
-              unit: "bags",
-              unit_price: 32.99,
-              category: "feed_nutrition"
-            },
-            {
-              description: "Hay Bales - Timothy",
-              quantity: "50",
-              unit: "bales",
-              unit_price: 8.75,
-              category: "feed_nutrition"
-            },
-            {
-              description: "Horse Shampoo",
-              quantity: "3",
-              unit: "bottles",
-              unit_price: 15.99,
-              category: "grooming_care"
-            },
-            {
-              description: "Hoof Pick",
-              quantity: "2",
-              unit: "pieces",
-              unit_price: 12.50,
-              category: "grooming_care"
-            },
-            {
-              description: "Fly Spray",
-              quantity: "4",
-              unit: "bottles",
-              unit_price: 24.99,
-              category: "health_medical"
-            }
-          ]
-        }
-      })
-    }
 
     // In production, make the actual FormData request
     return fetch(`${apiClient['baseUrl']}/api/v1/supplies/transactions/process-receipt`, {
