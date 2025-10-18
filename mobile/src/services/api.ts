@@ -2,13 +2,14 @@
 
 // Smart fallback: if no env var set, use current domain to avoid CORS issues
 const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL
-  }
-
-  // In production, use the current domain to avoid CORS
+  // Force correct URL on Railway to fix CORS issues
   if (typeof window !== 'undefined' && window.location.hostname.includes('railway.app')) {
     return `${window.location.protocol}//${window.location.host}`
+  }
+
+  // Use environment variable if set (but Railway override takes precedence)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
   }
 
   // Development fallback
