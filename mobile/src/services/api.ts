@@ -471,6 +471,32 @@ class ApiClient {
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'DELETE' })
   }
+
+  async postFormData<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
+    const headers: Record<string, string> = {}
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`
+    }
+    // Don't set Content-Type for FormData - let browser set it
+
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        return { success: true, data: result }
+      } else {
+        return { success: false, error: result.message || 'Upload failed' }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Upload failed' }
+    }
+  }
 }
 
 // Create API client instance
@@ -526,13 +552,7 @@ export const suppliesApi = {
   update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/supplies/${id}`, { ...data, organization_id: organizationId }),
   delete: (id: string, organizationId: string) => apiClient.delete(`/api/v1/supplies/${id}?organization_id=${organizationId}`),
   processReceipt: (formData: FormData, organizationId: string) => {
-
-    // In production, make the actual FormData request
-    return fetch(`${apiClient['baseUrl']}/api/v1/supplies/transactions/process-receipt`, {
-      method: 'POST',
-      headers: apiClient['token'] ? { 'Authorization': `Bearer ${apiClient['token']}` } : {},
-      body: formData
-    }).then(response => response.json())
+    return apiClient.postFormData(`/api/v1/supplies/transactions/process-receipt`, formData)
   }
 }
 
