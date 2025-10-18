@@ -165,7 +165,7 @@ class ApiClient {
       if (horse) {
         return Promise.resolve({
           success: true,
-          data: horse
+          data: horse as T
         })
       } else {
         return Promise.resolve({
@@ -179,13 +179,13 @@ class ApiClient {
     if (endpoint.includes('/horses/') && (endpoint.includes('active_only') || endpoint.includes('?'))) {
       return Promise.resolve({
         success: true,
-        data: mockHorses
+        data: mockHorses as T
       })
     }
 
     // Handle AI chat requests
     if (endpoint.includes('/ai/chat')) {
-      const requestData = JSON.parse(options.body || '{}')
+      const requestData = JSON.parse(options.body as string || '{}')
       const messages = requestData.messages || []
       const horseId = requestData.horse_id
 
@@ -220,8 +220,9 @@ class ApiClient {
       }
 
       return Promise.resolve({
+        success: true,
         response: mockResponse
-      })
+      } as any)
     }
 
     // Find matching mock response
