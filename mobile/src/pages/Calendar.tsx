@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { calendarApi, horseApi } from '../services/api'
 
 interface User {
   user_id: string
@@ -79,19 +80,9 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
 
     setLoading(true)
     try {
-      const accessToken = localStorage.getItem('access_token')
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/calendar/events?organization_id=${selectedBarnId}`,
-        { headers }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        setEvents(data || [])
+      const response = await calendarApi.getEvents(selectedBarnId)
+      if (response.success) {
+        setEvents(Array.isArray(response.data) ? response.data : [])
       }
     } catch (error) {
       console.error('Error fetching events:', error)
@@ -104,19 +95,16 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
     if (!selectedBarnId) return
 
     try {
-      const accessToken = localStorage.getItem('access_token')
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/horses?organization_id=${selectedBarnId}`,
-        { headers }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        setHorses(data.horses || [])
+      const response = await horseApi.getAll(selectedBarnId)
+      if (response.success) {
+        // Convert horses to the expected format for the calendar
+        const horseData = Array.isArray(response.data) ? response.data : []
+        const formattedHorses = horseData.map((horse: any) => ({
+          horse_id: horse.id,
+          horse_name: horse.name,
+          barn_id: selectedBarnId
+        }))
+        setHorses(formattedHorses)
       }
     } catch (error) {
       console.error('Error fetching horses:', error)
@@ -128,14 +116,6 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
     if (!selectedBarnId) return
 
     try {
-      const accessToken = localStorage.getItem('access_token')
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? { 'Content-Type': 'application/json' }
-        : {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-
       // Combine date and time into scheduled_date
       const dateTimeString = formData.scheduled_time
         ? `${formData.scheduled_date}T${formData.scheduled_time}:00`
@@ -150,13 +130,12 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
         horse_id: formData.horse_id ? parseInt(formData.horse_id) : null
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/calendar/events?organization_id=${selectedBarnId}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(eventData)
-      })
+      console.log('Adding event with data:', eventData)
+      const response = await calendarApi.create(eventData, selectedBarnId)
+      console.log('Add event response:', response)
 
-      if (response.ok) {
+      if (response.success) {
+        console.log('Event added successfully, refreshing events...')
         await fetchEvents()
         setShowAddForm(false)
         setFormData({
@@ -169,6 +148,8 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
           horse_id: ''
         })
         setActiveTab('upcoming')
+      } else {
+        console.error('Failed to add event:', response.error)
       }
     } catch (error) {
       console.error('Error adding event:', error)
@@ -176,18 +157,12 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
   }
 
   const handleDeleteEvent = async (eventId: number) => {
+    if (!selectedBarnId) return
+
     try {
-      const accessToken = localStorage.getItem('access_token')
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
+      const response = await calendarApi.delete(eventId, selectedBarnId)
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/calendar/events/${eventId}`, {
-        method: 'DELETE',
-        headers
-      })
-
-      if (response.ok) {
+      if (response.success) {
         await fetchEvents()
         setShowEventModal(false)
         setSelectedEvent(null)

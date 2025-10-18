@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { suppliesApi, apiClient } from '../services/api'
 
 interface User {
   user_id: string
@@ -114,18 +115,11 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
+      apiClient.setToken(accessToken)
+      const response = await suppliesApi.getDashboard(selectedBarnId)
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/supplies/dashboard?organization_id=${selectedBarnId}`,
-        { headers }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        setDashboardData(data)
+      if (response.success) {
+        setDashboardData(response.data as DashboardData)
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
@@ -141,27 +135,27 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
+      apiClient.setToken(accessToken)
+      const response = await suppliesApi.getAll(selectedBarnId)
 
-      const params = new URLSearchParams({
-        organization_id: selectedBarnId,
-        active_only: 'true'
-      })
+      if (response.success) {
+        let suppliesData = Array.isArray(response.data) ? response.data : []
 
-      if (selectedCategory) params.append('category', selectedCategory)
-      if (stockFilter === 'low') params.append('low_stock_only', 'true')
-      if (searchTerm) params.append('search', searchTerm)
+        // Apply filters locally for development
+        if (selectedCategory) {
+          suppliesData = suppliesData.filter((s: any) => s.category === selectedCategory)
+        }
+        if (stockFilter === 'low') {
+          suppliesData = suppliesData.filter((s: any) => s.is_low_stock)
+        }
+        if (searchTerm) {
+          suppliesData = suppliesData.filter((s: any) =>
+            s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            s.description?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/supplies/?${params.toString()}`,
-        { headers }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        setSupplies(data || [])
+        setSupplies(suppliesData)
       }
     } catch (error) {
       console.error('Failed to load supplies:', error)
@@ -213,9 +207,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
+      apiClient.setToken(accessToken)
 
       // Convert base64 to blob
       const response = await fetch(selectedImage)
@@ -225,18 +217,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       formData.append('receipt_image', blob, 'receipt.jpg')
       formData.append('organization_id', selectedBarnId)
 
-      const apiResponse = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/supplies/transactions/process-receipt`,
-        {
-          method: 'POST',
-          headers,
-          body: formData
-        }
-      )
+      const result = await suppliesApi.processReceipt(formData, selectedBarnId)
 
-      if (apiResponse.ok) {
-        const result = await apiResponse.json()
-        setReceiptResults(result)
+      if (result.success) {
+        setReceiptResults(result.data)
       } else {
         throw new Error('Failed to process receipt')
       }
@@ -262,32 +246,21 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? { 'Content-Type': 'application/json' }
-        : {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+      apiClient.setToken(accessToken)
 
       const supplyData = {
         name: item.description,
         category: item.category,
         unit_type: item.unit || 'units',
         current_stock: parseFloat(item.quantity) || 1,
-        last_cost_per_unit: parseFloat(item.unit_price) || 0,
-        organization_id: selectedBarnId
+        last_cost_per_unit: parseFloat(item.unit_price) || 0
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/supplies/`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(supplyData)
-        }
-      )
+      console.log('Adding receipt item to inventory:', supplyData)
+      const response = await suppliesApi.create(supplyData, selectedBarnId)
+      console.log('Add supply response:', response)
 
-      if (response.ok) {
+      if (response.success) {
         // Refresh supplies list if we're on inventory tab
         if (activeTab === 'inventory') {
           loadSupplies()
@@ -320,31 +293,13 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? { 'Content-Type': 'application/json' }
-        : {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+      apiClient.setToken(accessToken)
 
-      const supplyData = {
-        ...newSupply,
-        organization_id: selectedBarnId
-      }
+      const response = editingSupply
+        ? await suppliesApi.update(editingSupply.id.toString(), newSupply, selectedBarnId)
+        : await suppliesApi.create(newSupply, selectedBarnId)
 
-      const url = editingSupply
-        ? `${import.meta.env.VITE_API_URL}/api/v1/supplies/${editingSupply.id}`
-        : `${import.meta.env.VITE_API_URL}/api/v1/supplies/`
-
-      const method = editingSupply ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: JSON.stringify(supplyData)
-      })
-
-      if (response.ok) {
+      if (response.success) {
         setShowAddSupplyModal(false)
         setEditingSupply(null)
         loadSupplies()
@@ -429,7 +384,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                   </div>
 
                   {/* Low Stock Alerts */}
-                  {dashboardData.low_stock_items.length > 0 && (
+                  {dashboardData.low_stock_items && dashboardData.low_stock_items.length > 0 && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h3 className="text-lg font-medium text-yellow-800 mb-3">⚠️ Low Stock Alerts</h3>
                       <div className="space-y-2">

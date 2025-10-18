@@ -12,6 +12,165 @@ interface ApiResponse<T = any> {
 }
 
 // Base API client
+// Mock data for development mode - defined at module level to persist across requests
+const mockHorses = [
+  {
+    id: "1",
+    name: "Ace",
+    breed: "Paint",
+    age_years: 22,
+    age_display: "22 years, 3 months",
+    color: "Black and White",
+    gender: "gelding" as const,
+    current_health_status: "Good" as const,
+    active: true,
+    owner_name: "John Smith",
+    notes: "Excellent jumping horse",
+    created_at: "2023-01-01T00:00:00Z",
+    updated_at: "2023-01-01T00:00:00Z"
+  },
+  {
+    id: "2",
+    name: "Lightning",
+    breed: "Arabian",
+    age_years: 6,
+    age_display: "6 years",
+    color: "Chestnut",
+    gender: "mare" as const,
+    current_health_status: "Excellent" as const,
+    active: true,
+    owner_name: "Jane Doe",
+    notes: "Great for trail riding",
+    created_at: "2023-02-01T00:00:00Z",
+    updated_at: "2023-02-01T00:00:00Z"
+  },
+  {
+    id: "3",
+    name: "Storm",
+    breed: "Quarter Horse",
+    age_years: 12,
+    age_display: "12 years",
+    color: "Black",
+    gender: "stallion" as const,
+    current_health_status: "Good" as const,
+    active: true,
+    owner_name: "Bob Johnson",
+    notes: "Calm and reliable",
+    created_at: "2023-03-01T00:00:00Z",
+    updated_at: "2023-03-01T00:00:00Z"
+  }
+]
+
+const mockSupplies = [
+  {
+    id: 1,
+    uuid: "supply-1",
+    name: "Premium Horse Feed",
+    description: "High-quality grain feed for adult horses",
+    category: "feed_nutrition",
+    brand: "Purina",
+    unit_type: "bags",
+    package_size: 50,
+    package_unit: "lbs",
+    current_stock: 12,
+    min_stock_level: 5,
+    reorder_point: 3,
+    last_cost_per_unit: 18.99,
+    storage_location: "Feed Room",
+    is_low_stock: false,
+    is_out_of_stock: false
+  },
+  {
+    id: 2,
+    uuid: "supply-2",
+    name: "Pine Shavings",
+    description: "Natural bedding material",
+    category: "bedding",
+    brand: "Tractor Supply",
+    unit_type: "bales",
+    current_stock: 2,
+    min_stock_level: 8,
+    reorder_point: 4,
+    last_cost_per_unit: 7.50,
+    storage_location: "Barn Storage",
+    is_low_stock: true,
+    is_out_of_stock: false
+  },
+  {
+    id: 3,
+    uuid: "supply-3",
+    name: "Fly Spray",
+    description: "Insect repellent for horses",
+    category: "health_medical",
+    brand: "Farnam",
+    unit_type: "bottles",
+    current_stock: 0,
+    min_stock_level: 3,
+    reorder_point: 2,
+    last_cost_per_unit: 12.95,
+    storage_location: "Tack Room",
+    is_low_stock: false,
+    is_out_of_stock: true
+  }
+]
+
+const mockEvents = [
+  {
+    id: 1,
+    uuid: "event-1",
+    event_type: "veterinary",
+    title: "Vet Checkup - Ace",
+    description: "Annual health checkup",
+    scheduled_date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+    duration_minutes: 60,
+    horse_id: 1,
+    horse_name: "Ace",
+    horse: { horse_id: "1", horse_name: "Ace", barn_id: "1" }
+  },
+  {
+    id: 2,
+    uuid: "event-2",
+    event_type: "training",
+    title: "Training Session - Lightning",
+    description: "Jumping practice",
+    scheduled_date: new Date(Date.now() + 172800000).toISOString(), // Day after tomorrow
+    duration_minutes: 90,
+    horse_id: 2,
+    horse_name: "Lightning",
+    horse: { horse_id: "2", horse_name: "Lightning", barn_id: "1" }
+  },
+  {
+    id: 3,
+    uuid: "event-3",
+    event_type: "farrier",
+    title: "Horseshoeing - Storm",
+    description: "Regular horseshoeing appointment",
+    scheduled_date: new Date(Date.now() + 259200000).toISOString(), // 3 days from now
+    duration_minutes: 45,
+    horse_id: 3,
+    horse_name: "Storm",
+    horse: { horse_id: "3", horse_name: "Storm", barn_id: "1" }
+  },
+  {
+    id: 4,
+    uuid: "event-4",
+    event_type: "dental",
+    title: "Dental Check - All Horses",
+    description: "Annual dental examination",
+    scheduled_date: new Date(Date.now() + 604800000).toISOString(), // 1 week from now
+    duration_minutes: 120
+  },
+  {
+    id: 5,
+    uuid: "event-5",
+    event_type: "supply_delivery",
+    title: "Feed Delivery",
+    description: "Monthly feed delivery",
+    scheduled_date: new Date(Date.now() + 1209600000).toISOString(), // 2 weeks from now
+    duration_minutes: 30
+  }
+]
+
 class ApiClient {
   private baseUrl: string
   private token: string | null = null
@@ -76,54 +235,6 @@ class ApiClient {
   }
 
   private getMockData<T>(endpoint: string, options: RequestInit): Promise<ApiResponse<T>> {
-    // Mock data for development mode
-    const mockHorses = [
-      {
-        id: "1",
-        name: "Ace",
-        breed: "Paint",
-        age_years: 22,
-        age_display: "22 years, 3 months",
-        color: "Black and White",
-        gender: "gelding" as const,
-        current_health_status: "Good" as const,
-        active: true,
-        owner_name: "John Smith",
-        notes: "Excellent jumping horse",
-        created_at: "2023-01-01T00:00:00Z",
-        updated_at: "2023-01-01T00:00:00Z"
-      },
-      {
-        id: "2",
-        name: "Lightning",
-        breed: "Arabian",
-        age_years: 6,
-        age_display: "6 years",
-        color: "Chestnut",
-        gender: "mare" as const,
-        current_health_status: "Excellent" as const,
-        active: true,
-        owner_name: "Jane Doe",
-        notes: "Great for trail riding",
-        created_at: "2023-02-01T00:00:00Z",
-        updated_at: "2023-02-01T00:00:00Z"
-      },
-      {
-        id: "3",
-        name: "Storm",
-        breed: "Quarter Horse",
-        age_years: 12,
-        age_display: "12 years",
-        color: "Black",
-        gender: "stallion" as const,
-        current_health_status: "Good" as const,
-        active: true,
-        owner_name: "Bob Johnson",
-        notes: "Calm and reliable",
-        created_at: "2023-03-01T00:00:00Z",
-        updated_at: "2023-03-01T00:00:00Z"
-      }
-    ]
 
     const mockResponses: Record<string, any> = {
       // Horses endpoints
@@ -131,29 +242,22 @@ class ApiClient {
         success: true,
         data: mockHorses
       },
+      '/horses?': {
+        success: true,
+        data: { horses: mockHorses }
+      },
       // Calendar endpoints
+      '/calendar/events': {
+        success: true,
+        data: mockEvents
+      },
       '/calendar/upcoming': {
         success: true,
-        data: [
-          {
-            id: 1,
-            title: "Vet Checkup - Ace",
-            event_type: "medical",
-            start_datetime: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-            horse_id: 1,
-            horse_name: "Ace",
-            description: "Annual health checkup"
-          },
-          {
-            id: 2,
-            title: "Training Session - Lightning",
-            event_type: "training",
-            start_datetime: new Date(Date.now() + 172800000).toISOString(), // Day after tomorrow
-            horse_id: 2,
-            horse_name: "Lightning",
-            description: "Jumping practice"
-          }
-        ]
+        data: mockEvents.slice(0, 3)
+      },
+      '/api/v1/calendar/events': {
+        success: true,
+        data: mockEvents
       }
     }
 
@@ -222,6 +326,113 @@ class ApiClient {
       return Promise.resolve({
         success: true,
         response: mockResponse
+      } as any)
+    }
+
+    // Handle POST requests (creating events)
+    if (options.method === 'POST' && endpoint.includes('/api/v1/calendar/events')) {
+      const newEventData = JSON.parse(options.body as string || '{}')
+      const newEvent = {
+        id: mockEvents.length + 1,
+        uuid: `event-${mockEvents.length + 1}`,
+        ...newEventData,
+        horse: newEventData.horse_id ?
+          mockHorses.find(h => h.id === newEventData.horse_id.toString()) :
+          undefined
+      }
+      mockEvents.push(newEvent)
+      return Promise.resolve({
+        success: true,
+        data: newEvent as T
+      })
+    }
+
+    // Handle POST requests (creating supplies)
+    if (options.method === 'POST' && endpoint.includes('/api/v1/supplies')) {
+      const newSupplyData = JSON.parse(options.body as string || '{}')
+      const newSupply = {
+        id: mockSupplies.length + 1,
+        uuid: `supply-${mockSupplies.length + 1}`,
+        is_low_stock: (newSupplyData.current_stock || 0) <= (newSupplyData.reorder_point || 0),
+        is_out_of_stock: (newSupplyData.current_stock || 0) === 0,
+        ...newSupplyData
+      }
+      mockSupplies.push(newSupply)
+      return Promise.resolve({
+        success: true,
+        data: newSupply as T
+      })
+    }
+
+    // Handle GET requests for supplies
+    if (options.method === 'GET' && endpoint.includes('/api/v1/supplies/')) {
+      return Promise.resolve({
+        success: true,
+        data: mockSupplies as T
+      })
+    }
+
+    // Handle GET requests for supplies dashboard
+    if (endpoint.includes('/api/v1/supplies/dashboard')) {
+      const dashboardData = {
+        total_supplies: mockSupplies.length,
+        low_stock_count: mockSupplies.filter(s => s.is_low_stock).length,
+        out_of_stock_count: mockSupplies.filter(s => s.is_out_of_stock).length,
+        total_inventory_value: mockSupplies.reduce((total, s) => total + (s.current_stock * (s.last_cost_per_unit || 0)), 0),
+        monthly_spending: 1234.56,
+        top_categories: [
+          { category: "feed_nutrition", amount: 850.00 },
+          { category: "bedding", amount: 245.50 }
+        ],
+        recent_transactions: [],
+        low_stock_items: mockSupplies.filter(s => s.is_low_stock)
+      }
+      return Promise.resolve({
+        success: true,
+        data: dashboardData as T
+      })
+    }
+
+    // Handle receipt processing (mock)
+    if (endpoint.includes('/api/v1/supplies/transactions/process-receipt')) {
+      // Return mock receipt processing result
+      const mockReceiptResult = {
+        vendor_name: "Chipaway Stables, Inc.",
+        purchase_date: new Date().toISOString().split('T')[0],
+        total_amount: 2899.76,
+        line_items: [
+          {
+            description: "Corn 1st cut",
+            quantity: "25",
+            unit: "bags",
+            unit_price: 18.50,
+            category: "feed_nutrition"
+          }
+        ]
+      }
+      return Promise.resolve({
+        success: true,
+        data: mockReceiptResult as T
+      })
+    }
+
+    // Handle DELETE requests (deleting events)
+    if (options.method === 'DELETE' && endpoint.includes('/api/v1/calendar/events/')) {
+      const eventIdMatch = endpoint.match(/\/api\/v1\/calendar\/events\/(\d+)/)
+      if (eventIdMatch) {
+        const eventId = parseInt(eventIdMatch[1])
+        const index = mockEvents.findIndex(e => e.id === eventId)
+        if (index !== -1) {
+          mockEvents.splice(index, 1)
+          return Promise.resolve({
+            success: true,
+            message: 'Event deleted successfully' as T
+          } as any)
+        }
+      }
+      return Promise.resolve({
+        success: false,
+        error: 'Event not found' as T
       } as any)
     }
 
@@ -296,6 +507,93 @@ export const trainingApi = {
   create: (data: any) => apiClient.post('/training', data),
   update: (id: string, data: any) => apiClient.put(`/training/${id}`, data),
   delete: (id: string) => apiClient.delete(`/training/${id}`),
+}
+
+// Calendar events API
+export const calendarApi = {
+  getEvents: (organizationId: string) => apiClient.get(`/calendar/events?organization_id=${organizationId}`),
+  getUpcoming: (organizationId: string) => apiClient.get(`/calendar/upcoming?organization_id=${organizationId}`),
+  create: (data: any, organizationId: string) => apiClient.post(`/api/v1/calendar/events?organization_id=${organizationId}`, data),
+  update: (id: number, data: any, organizationId: string) => apiClient.put(`/api/v1/calendar/events/${id}?organization_id=${organizationId}`, data),
+  delete: (id: number, organizationId: string) => apiClient.delete(`/api/v1/calendar/events/${id}?organization_id=${organizationId}`),
+}
+
+// Supplies API functions
+export const suppliesApi = {
+  getAll: (organizationId: string) => apiClient.get(`/api/v1/supplies/?organization_id=${organizationId}`),
+  getDashboard: (organizationId: string) => apiClient.get(`/api/v1/supplies/dashboard?organization_id=${organizationId}`),
+  create: (data: any, organizationId: string) => apiClient.post(`/api/v1/supplies/`, { ...data, organization_id: organizationId }),
+  update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/supplies/${id}`, { ...data, organization_id: organizationId }),
+  delete: (id: string, organizationId: string) => apiClient.delete(`/api/v1/supplies/${id}?organization_id=${organizationId}`),
+  processReceipt: (formData: FormData, organizationId: string) => {
+    // For FormData, we need to handle it differently in development mode
+    const isDevelopment = apiClient['token'] === 'dev_token_placeholder' ||
+                         apiClient['baseUrl'].includes('localhost:8002') ||
+                         import.meta.env.DEV
+
+    if (isDevelopment) {
+      // Return mock receipt processing result directly
+      return Promise.resolve({
+        success: true,
+        data: {
+          vendor_name: "Chipaway Stables, Inc.",
+          purchase_date: new Date().toISOString().split('T')[0],
+          total_amount: 1402.83,
+          line_items: [
+            {
+              description: "Corn 1st cut",
+              quantity: "25",
+              unit: "bags",
+              unit_price: 18.50,
+              category: "feed_nutrition"
+            },
+            {
+              description: "Premium Horse Feed",
+              quantity: "10",
+              unit: "bags",
+              unit_price: 32.99,
+              category: "feed_nutrition"
+            },
+            {
+              description: "Hay Bales - Timothy",
+              quantity: "50",
+              unit: "bales",
+              unit_price: 8.75,
+              category: "feed_nutrition"
+            },
+            {
+              description: "Horse Shampoo",
+              quantity: "3",
+              unit: "bottles",
+              unit_price: 15.99,
+              category: "grooming_care"
+            },
+            {
+              description: "Hoof Pick",
+              quantity: "2",
+              unit: "pieces",
+              unit_price: 12.50,
+              category: "grooming_care"
+            },
+            {
+              description: "Fly Spray",
+              quantity: "4",
+              unit: "bottles",
+              unit_price: 24.99,
+              category: "health_medical"
+            }
+          ]
+        }
+      })
+    }
+
+    // In production, make the actual FormData request
+    return fetch(`${apiClient['baseUrl']}/api/v1/supplies/transactions/process-receipt`, {
+      method: 'POST',
+      headers: apiClient['token'] ? { 'Authorization': `Bearer ${apiClient['token']}` } : {},
+      body: formData
+    }).then(response => response.json())
+  }
 }
 
 export default apiClient
