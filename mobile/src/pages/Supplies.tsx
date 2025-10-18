@@ -250,10 +250,15 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
 
       const supplyData = {
         name: item.description,
+        description: '',
         category: item.category,
+        brand: '',
         unit_type: item.unit || 'units',
         current_stock: parseFloat(item.quantity) || 1,
-        last_cost_per_unit: parseFloat(item.unit_price) || 0
+        min_stock_level: 0,
+        reorder_point: 0,
+        last_cost_per_unit: parseFloat(item.unit_price) || 0,
+        storage_location: ''
       }
 
       console.log('Adding receipt item to inventory:', supplyData)
@@ -268,7 +273,8 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
         // Mark this item as added (you could remove it from the UI)
         alert(`${item.description} added to inventory successfully!`)
       } else {
-        throw new Error('Failed to add item to inventory')
+        console.error('API error response:', response)
+        throw new Error(response.error || 'Failed to add item to inventory')
       }
     } catch (error) {
       console.error('Failed to add receipt item to inventory:', error)
