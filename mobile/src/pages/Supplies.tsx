@@ -284,7 +284,11 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
         alert(`${item.description} added to inventory successfully!`)
       } else {
         console.error('API error response:', response)
-        throw new Error(response.error || 'Failed to add item to inventory')
+        const errorMessage = Array.isArray(response.error)
+          ? response.error.join(', ')
+          : response.error || 'Failed to add item to inventory'
+        console.error('Formatted error message:', errorMessage)
+        throw new Error(errorMessage)
       }
     } catch (error) {
       console.error('Failed to add receipt item to inventory:', error)
