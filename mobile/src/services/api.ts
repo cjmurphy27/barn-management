@@ -511,8 +511,8 @@ export const trainingApi = {
 
 // Calendar events API
 export const calendarApi = {
-  getEvents: (organizationId: string) => apiClient.get(`/calendar/events?organization_id=${organizationId}`),
-  getUpcoming: (organizationId: string) => apiClient.get(`/calendar/upcoming?organization_id=${organizationId}`),
+  getEvents: (organizationId: string) => apiClient.get(`/api/v1/calendar/events?organization_id=${organizationId}`),
+  getUpcoming: (organizationId: string) => apiClient.get(`/api/v1/calendar/upcoming?organization_id=${organizationId}`),
   create: (data: any, organizationId: string) => apiClient.post(`/api/v1/calendar/events?organization_id=${organizationId}`, data),
   update: (id: number, data: any, organizationId: string) => apiClient.put(`/api/v1/calendar/events/${id}?organization_id=${organizationId}`, data),
   delete: (id: number, organizationId: string) => apiClient.delete(`/api/v1/calendar/events/${id}?organization_id=${organizationId}`),
