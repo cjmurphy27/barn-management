@@ -1,6 +1,21 @@
 // API service for communicating with FastAPI backend
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+// Smart fallback: if no env var set, use current domain to avoid CORS issues
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+
+  // In production, use the current domain to avoid CORS
+  if (typeof window !== 'undefined' && window.location.hostname.includes('railway.app')) {
+    return `${window.location.protocol}//${window.location.host}`
+  }
+
+  // Development fallback
+  return '/api/v1'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 // Note: Organization ID will be dynamically obtained from authenticated user
 
