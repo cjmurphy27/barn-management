@@ -111,6 +111,9 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
   const [documents, setDocuments] = useState<Document[]>([])
   const [documentsLoading, setDocumentsLoading] = useState(false)
   const [uploadingDocument, setUploadingDocument] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editFormData, setEditFormData] = useState<Partial<Horse>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (id && user && selectedBarnId) {
@@ -148,6 +151,9 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
           loadHorsePhoto(horseData.id, selectedBarnId)
         }
 
+        // Initialize edit form data
+        setEditFormData(horseData)
+
         // Load documents
         loadDocuments(horseData.id, selectedBarnId)
       } else {
@@ -171,7 +177,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const photoUrl = `${import.meta.env.VITE_API_URL}/horses/${horseId}/photo?organization_id=${organizationId}`
+      const photoUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horseId}/photo?organization_id=${organizationId}`
       const response = await fetch(photoUrl, { headers })
 
       if (response.ok) {
@@ -195,7 +201,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const documentsUrl = `${import.meta.env.VITE_API_URL}/horses/${horseId}/documents?organization_id=${organizationId}`
+      const documentsUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horseId}/documents?organization_id=${organizationId}`
       const response = await fetch(documentsUrl, { headers })
 
       if (response.ok) {
@@ -228,7 +234,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const uploadUrl = `${import.meta.env.VITE_API_URL}/horses/${horse.id}/documents?organization_id=${selectedBarnId}`
+      const uploadUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers,
@@ -260,7 +266,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const deleteUrl = `${import.meta.env.VITE_API_URL}/horses/${horse.id}/documents/${documentId}?organization_id=${selectedBarnId}`
+      const deleteUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/documents/${documentId}?organization_id=${selectedBarnId}`
       const response = await fetch(deleteUrl, {
         method: 'DELETE',
         headers
@@ -332,6 +338,59 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
     }
   }
 
+  const handleSaveChanges = async () => {
+    if (!horse || !selectedBarnId) return
+
+    setSaving(true)
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) {
+        throw new Error('Not authenticated')
+      }
+
+      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+        ? { 'Content-Type': 'application/json' }
+        : {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}?organization_id=${selectedBarnId}`,
+        {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(editFormData)
+        }
+      )
+
+      if (response.ok) {
+        const updatedHorse = await response.json()
+        setHorse(updatedHorse)
+        setEditFormData(updatedHorse)
+        setIsEditing(false)
+      } else {
+        throw new Error('Failed to update horse')
+      }
+    } catch (error) {
+      console.error('Error updating horse:', error)
+      alert('Failed to save changes. Please try again.')
+    }
+    setSaving(false)
+  }
+
+  const handleCancelEdit = () => {
+    setEditFormData(horse || {})
+    setIsEditing(false)
+  }
+
+  const handleInputChange = (field: keyof Horse, value: string | number) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -397,13 +456,52 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
           Back to Horses
         </Link>
         <div className="flex items-center space-x-3">
-          <Link
-            to={`/horses/${horse.id}/ai`}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2 px-4 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-colors flex items-center space-x-2"
-          >
-            <span>🤖</span>
-            <span>Ask AI</span>
-          </Link>
+          {isEditing ? (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleSaveChanges}
+                disabled={saving}
+                className="bg-green-600 text-white text-sm font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>💾</span>
+                    <span>Save</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="bg-gray-500 text-white text-sm font-medium py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors flex items-center space-x-2 disabled:opacity-50"
+              >
+                <span>❌</span>
+                <span>Cancel</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="bg-orange-500 text-white text-sm font-medium py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors flex items-center space-x-2"
+              >
+                <span>✏️</span>
+                <span>Edit</span>
+              </button>
+              <Link
+                to={`/horses/${horse.id}/ai`}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2 px-4 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-colors flex items-center space-x-2"
+              >
+                <span>🤖</span>
+                <span>Ask AI</span>
+              </Link>
+            </div>
+          )}
           {horse.status && (
             <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(horse.status)}`}>
               {horse.status}
@@ -513,44 +611,127 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         <div className="p-6">
           {activeTab === 'basic' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {horse.registration_number && (
+              {isEditing ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Registration Number</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.registration_number}</dd>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={editFormData.name || ''}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
                   </div>
-                )}
-                {horse.registration_organization && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Registry</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.registration_organization}</dd>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+                    <input
+                      type="text"
+                      value={editFormData.breed || ''}
+                      onChange={(e) => handleInputChange('breed', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
                   </div>
-                )}
-                {horse.microchip_number && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Microchip</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.microchip_number}</dd>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                    <input
+                      type="text"
+                      value={editFormData.color || ''}
+                      onChange={(e) => handleInputChange('color', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
                   </div>
-                )}
-                {horse.passport_number && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Passport</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.passport_number}</dd>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                    <select
+                      value={editFormData.gender || ''}
+                      onChange={(e) => handleInputChange('gender', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="mare">Mare</option>
+                      <option value="stallion">Stallion</option>
+                      <option value="gelding">Gelding</option>
+                    </select>
                   </div>
-                )}
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Status</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {horse.is_active ? 'Active' : 'Inactive'}
-                    {horse.is_retired && ' • Retired'}
-                    {horse.is_for_sale && ' • For Sale'}
-                  </dd>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                    <input
+                      type="text"
+                      value={editFormData.registration_number || ''}
+                      onChange={(e) => handleInputChange('registration_number', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Registry</label>
+                    <input
+                      type="text"
+                      value={editFormData.registration_organization || ''}
+                      onChange={(e) => handleInputChange('registration_organization', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Microchip</label>
+                    <input
+                      type="text"
+                      value={editFormData.microchip_number || ''}
+                      onChange={(e) => handleInputChange('microchip_number', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Passport</label>
+                    <input
+                      type="text"
+                      value={editFormData.passport_number || ''}
+                      onChange={(e) => handleInputChange('passport_number', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="text-xs text-gray-500 border-t pt-4">
-                <p>Created: {new Date(horse.created_at).toLocaleDateString()}</p>
-                <p>Updated: {new Date(horse.updated_at).toLocaleDateString()}</p>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {horse.registration_number && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Registration Number</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.registration_number}</dd>
+                    </div>
+                  )}
+                  {horse.registration_organization && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Registry</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.registration_organization}</dd>
+                    </div>
+                  )}
+                  {horse.microchip_number && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Microchip</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.microchip_number}</dd>
+                    </div>
+                  )}
+                  {horse.passport_number && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Passport</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{horse.passport_number}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Status</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {horse.is_active ? 'Active' : 'Inactive'}
+                      {horse.is_retired && ' • Retired'}
+                      {horse.is_for_sale && ' • For Sale'}
+                    </dd>
+                  </div>
+                </div>
+              )}
+              {!isEditing && (
+                <div className="text-xs text-gray-500 border-t pt-4">
+                  <p>Created: {new Date(horse.created_at).toLocaleDateString()}</p>
+                  <p>Updated: {new Date(horse.updated_at).toLocaleDateString()}</p>
+                </div>
+              )}
             </div>
           )}
 

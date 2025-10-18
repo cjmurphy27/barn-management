@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { horseApi, apiClient } from '../services/api'
 
 interface User {
   user_id: string
@@ -68,17 +69,13 @@ export default function HorseAI({ user, selectedBarnId }: HorseAIProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? {}
-        : { 'Authorization': `Bearer ${accessToken}` }
+      apiClient.setToken(accessToken)
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/horses/${id}?organization_id=${selectedBarnId}`,
-        { headers }
-      )
+      // Use the API service instead of direct fetch
+      const response = await horseApi.getById(id!, selectedBarnId)
 
-      if (response.ok) {
-        const horseData = await response.json()
+      if (response.success) {
+        const horseData = response.data as Horse
         setHorse(horseData)
 
         // Add initial AI greeting with horse context
@@ -89,6 +86,8 @@ export default function HorseAI({ user, selectedBarnId }: HorseAIProps) {
           timestamp: new Date()
         }
         setMessages([welcomeMessage])
+      } else {
+        throw new Error(response.error || 'Failed to load horse data')
       }
     } catch (error) {
       console.error('Failed to load horse:', error)
@@ -207,11 +206,21 @@ export default function HorseAI({ user, selectedBarnId }: HorseAIProps) {
     )
   }
 
+  if (!selectedBarnId) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No Barn Selected</h3>
+        <p className="text-gray-600 mb-4">Please select a barn to view horse information.</p>
+        <Link to="/horses" className="btn-primary">Back to Horses</Link>
+      </div>
+    )
+  }
+
   if (!horse) {
     return (
       <div className="text-center py-12">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Horse Not Found</h3>
-        <p className="text-gray-600 mb-4">Unable to load horse information.</p>
+        <p className="text-gray-600 mb-4">Unable to load horse information. Horse ID: {id}, Barn ID: {selectedBarnId}</p>
         <Link to="/horses" className="btn-primary">Back to Horses</Link>
       </div>
     )

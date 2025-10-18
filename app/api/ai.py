@@ -29,6 +29,15 @@ class CompareHorsesRequest(BaseModel):
     horse_ids: List[int]
     comparison_question: Optional[str] = None
 
+class ChatMessage(BaseModel):
+    role: str  # 'user' or 'assistant'
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    horse_id: Optional[int] = None
+    include_barn_context: bool = True
+
 class AIResponse(BaseModel):
     response: str
     horses_analyzed: Optional[List[str]] = None
@@ -199,3 +208,84 @@ async def ask_about_horse(
     """
     request = HorseAnalysisRequest(horse_id=horse_id, question=question)
     return await analyze_horse(request, db)
+
+# Chat endpoint for mobile app compatibility
+@router.post("/chat", response_model=AIResponse)
+async def ai_chat(
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Chat endpoint that handles conversation history with AI assistant.
+    Compatible with mobile app's HorseAI component.
+    """
+    try:
+        # Get the latest user message
+        if not request.messages:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No messages provided"
+            )
+
+        # Find the last user message
+        latest_message = None
+        for msg in reversed(request.messages):
+            if msg.role == "user":
+                latest_message = msg
+                break
+
+        if not latest_message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No user message found"
+            )
+
+        horse_context = None
+        horses_analyzed = []
+
+        # If horse_id is provided, get horse context
+        if request.horse_id:
+            horse = db.query(Horse).filter(Horse.id == request.horse_id).first()
+
+            if not horse:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Horse with ID {request.horse_id} not found"
+                )
+
+            horse_context = horse.to_dict()
+            horses_analyzed = [horse.name]
+
+            # Use horse-specific AI analysis
+            ai_response = ai_service.analyze_horse(
+                horse_context,
+                latest_message.content
+            )
+        else:
+            # General question handling
+            barn_context = None
+            if request.include_barn_context:
+                # Get barn context for general questions
+                horses = db.query(Horse).filter(Horse.is_active == True).limit(10).all()
+                barn_context = [h.to_dict() for h in horses]
+
+            ai_response = ai_service.general_horse_question(
+                latest_message.content,
+                barn_context
+            )
+
+        logger.info(f"Generated AI chat response for {'horse-specific' if request.horse_id else 'general'} question")
+
+        return AIResponse(
+            response=ai_response,
+            horses_analyzed=horses_analyzed if horses_analyzed else None
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in AI chat: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process chat message"
+        )

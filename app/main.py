@@ -98,6 +98,35 @@ app.include_router(ai_router)
 app.include_router(calendar_router)
 app.include_router(supplies_router)
 
+# Add a compatibility route for mobile app AI chat
+from fastapi import Request
+@app.post("/ai/chat")
+async def mobile_ai_chat_compatibility(request: Request):
+    """Compatibility endpoint for mobile app - redirects to proper AI chat endpoint"""
+    import json
+    body = await request.body()
+    request_data = json.loads(body)
+
+    # Forward to the proper AI chat endpoint
+    from app.api.ai import ai_chat, ChatRequest, ChatMessage
+    from app.database import get_db
+
+    # Convert request format to match our AI router
+    chat_request = ChatRequest(
+        messages=[ChatMessage(role=msg['role'], content=msg['content']) for msg in request_data.get('messages', [])],
+        horse_id=request_data.get('horse_id'),
+        include_barn_context=request_data.get('include_barn_context', True)
+    )
+
+    # Get database session
+    db = next(get_db())
+
+    try:
+        result = await ai_chat(chat_request, db)
+        return result
+    finally:
+        db.close()
+
 
 # Import and include horse documents router
 from app.api.horse_documents import router as horse_documents_router
