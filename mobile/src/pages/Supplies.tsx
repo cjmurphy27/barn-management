@@ -239,13 +239,23 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
   }
 
   const addReceiptItemToInventory = async (item: any, index: number) => {
-    if (!selectedBarnId) return
+    if (!selectedBarnId) {
+      console.error('No selectedBarnId available')
+      alert('Please select a barn first.')
+      return
+    }
 
+    console.log('Starting addReceiptItemToInventory with:', { item, index, selectedBarnId })
     setAddingToInventory(prev => ({ ...prev, [index]: true }))
     try {
       const accessToken = localStorage.getItem('access_token')
-      if (!accessToken) return
+      if (!accessToken) {
+        console.error('No access token found')
+        alert('Authentication required. Please log in again.')
+        return
+      }
 
+      console.log('Setting API token and preparing data...')
       apiClient.setToken(accessToken)
 
       const supplyData = {
@@ -278,7 +288,13 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       }
     } catch (error) {
       console.error('Failed to add receipt item to inventory:', error)
-      alert('Failed to add item to inventory. Please try again.')
+      console.error('Error details:', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        item,
+        selectedBarnId
+      })
+      alert(`Failed to add item to inventory: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`)
     }
     setAddingToInventory(prev => ({ ...prev, [index]: false }))
   }
