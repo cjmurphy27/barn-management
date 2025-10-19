@@ -263,7 +263,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
         description: '',
         category: item.category,
         brand: '',
-        unit_type: item.unit || 'units',
+        unit_type: item.unit || 'each',
         current_stock: parseFloat(item.quantity) || 1,
         min_stock_level: 0,
         reorder_point: 0,
