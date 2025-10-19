@@ -286,11 +286,24 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
         if (existingSupply) {
           console.log('Found existing supply, updating stock...', existingSupply)
           // Update existing supply stock
-          const newStock = existingSupply.current_stock + (parseFloat(item.quantity) || 1)
+          const quantityToAdd = parseFloat(item.quantity) || 1
+          const unitPrice = parseFloat(item.unit_price) || 0
+          const newStock = existingSupply.current_stock + quantityToAdd
+
+          console.log('Update calculation:', {
+            currentStock: existingSupply.current_stock,
+            quantityToAdd,
+            newStock,
+            unitPrice,
+            fallbackPrice: existingSupply.last_cost_per_unit
+          })
+
           const updateData = {
-            current_stock: newStock,
-            last_cost_per_unit: parseFloat(item.unit_price) || existingSupply.last_cost_per_unit
+            current_stock: Math.max(0, newStock), // Ensure non-negative
+            last_cost_per_unit: unitPrice > 0 ? unitPrice : existingSupply.last_cost_per_unit
           }
+
+          console.log('Sending update data:', updateData)
 
           const updateResponse = await suppliesApi.update(existingSupply.uuid, updateData, selectedBarnId)
           console.log('Update supply response:', updateResponse)
@@ -300,7 +313,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
             if (activeTab === 'inventory') {
               loadSupplies()
             }
-            alert(`Updated ${item.description} stock! Added ${item.quantity} units (new total: ${newStock})`)
+            alert(`Updated ${item.description} stock! Added ${quantityToAdd} units (new total: ${Math.max(0, newStock)})`)
           } else {
             throw new Error(updateResponse.error || 'Failed to update existing item stock')
           }
