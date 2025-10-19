@@ -305,7 +305,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
 
           console.log('Sending update data:', updateData)
 
-          const updateResponse = await suppliesApi.update(existingSupply.uuid, updateData, selectedBarnId)
+          const updateResponse = await suppliesApi.update(existingSupply.id, updateData, selectedBarnId)
           console.log('Update supply response:', updateResponse)
 
           if (updateResponse.success) {
