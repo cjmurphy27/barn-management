@@ -272,6 +272,44 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       }
 
       console.log('Adding receipt item to inventory:', supplyData)
+
+      // First check if supply already exists
+      console.log('Checking for existing supplies...')
+      const existingSuppliesResponse = await suppliesApi.getAll(selectedBarnId)
+
+      if (existingSuppliesResponse.success && existingSuppliesResponse.data) {
+        const existingSupply = existingSuppliesResponse.data.find((supply: any) =>
+          supply.name.toLowerCase() === item.description.toLowerCase() &&
+          supply.category === item.category
+        )
+
+        if (existingSupply) {
+          console.log('Found existing supply, updating stock...', existingSupply)
+          // Update existing supply stock
+          const newStock = existingSupply.current_stock + (parseFloat(item.quantity) || 1)
+          const updateData = {
+            current_stock: newStock,
+            last_cost_per_unit: parseFloat(item.unit_price) || existingSupply.last_cost_per_unit
+          }
+
+          const updateResponse = await suppliesApi.update(existingSupply.uuid, updateData, selectedBarnId)
+          console.log('Update supply response:', updateResponse)
+
+          if (updateResponse.success) {
+            // Refresh supplies list if we're on inventory tab
+            if (activeTab === 'inventory') {
+              loadSupplies()
+            }
+            alert(`Updated ${item.description} stock! Added ${item.quantity} units (new total: ${newStock})`)
+          } else {
+            throw new Error(updateResponse.error || 'Failed to update existing item stock')
+          }
+          return
+        }
+      }
+
+      // If no existing supply found, create new one
+      console.log('No existing supply found, creating new one...')
       const response = await suppliesApi.create(supplyData, selectedBarnId)
       console.log('Add supply response:', response)
 
