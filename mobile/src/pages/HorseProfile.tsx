@@ -82,6 +82,8 @@ interface Document {
   upload_date: string
   category: string
   description?: string
+  document_category?: string
+  title?: string
 }
 
 interface User {
@@ -115,6 +117,14 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
   const [editFormData, setEditFormData] = useState<Partial<Horse>>({})
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  // Enhanced document upload state
+  const [documentCategory, setDocumentCategory] = useState('')
+  const [documentTitle, setDocumentTitle] = useState('')
+  const [documentDescription, setDocumentDescription] = useState('')
+  const [takingPhoto, setTakingPhoto] = useState(false)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const [showCamera, setShowCamera] = useState(false)
 
   useEffect(() => {
     if (id && user && selectedBarnId) {
@@ -281,8 +291,21 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
 
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('category', 'general')
-      formData.append('description', file.name)
+
+      // Add category if selected
+      if (documentCategory) {
+        formData.append('document_category', documentCategory)
+      }
+
+      // Add title if provided
+      if (documentTitle) {
+        formData.append('title', documentTitle)
+      }
+
+      // Add description if provided
+      if (documentDescription) {
+        formData.append('description', documentDescription)
+      }
 
       const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
         ? {}
@@ -296,6 +319,11 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       })
 
       if (response.ok) {
+        // Clear form fields
+        setDocumentCategory('')
+        setDocumentTitle('')
+        setDocumentDescription('')
+
         // Reload documents
         loadDocuments(horse.id, selectedBarnId)
       } else {
@@ -350,6 +378,135 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
     if (type.includes('video')) return '🎥'
     if (type.includes('text') || type.includes('document')) return '📝'
     return '📎'
+  }
+
+  // Document categories from Streamlit
+  const documentCategories = {
+    "medical_record": "🏥 Medical Record",
+    "veterinary_report": "👩‍⚕️ Veterinary Report",
+    "vaccination_record": "💉 Vaccination Record",
+    "training_notes": "🏃 Training Notes",
+    "feed_evaluation": "🌾 Feed Evaluation",
+    "behavioral_notes": "🧠 Behavioral Notes",
+    "breeding_record": "🐎 Breeding Record",
+    "ownership_papers": "📋 Ownership Papers",
+    "insurance_document": "🛡️ Insurance Document",
+    "competition_record": "🏆 Competition Record",
+    "general": "📄 General"
+  }
+
+  // Camera functionality
+  const startCamera = async () => {
+    try {
+      setTakingPhoto(true)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      })
+      setCameraStream(stream)
+      setShowCamera(true)
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      alert('Unable to access camera. Please check permissions.')
+      setTakingPhoto(false)
+    }
+  }
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop())
+      setCameraStream(null)
+    }
+    setShowCamera(false)
+    setTakingPhoto(false)
+  }
+
+  const capturePhoto = async () => {
+    if (!cameraStream || !horse || !selectedBarnId) return
+
+    try {
+      const video = document.getElementById('camera-video') as HTMLVideoElement
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      ctx.drawImage(video, 0, 0)
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return
+
+        setUploadingDocument(true)
+
+        try {
+          const accessToken = localStorage.getItem('access_token')
+          if (!accessToken) {
+            throw new Error('Not authenticated')
+          }
+
+          const formData = new FormData()
+          const fileName = `camera-capture-${Date.now()}.jpg`
+          formData.append('file', blob, fileName)
+
+          // Add category if selected
+          if (documentCategory) {
+            formData.append('document_category', documentCategory)
+          }
+
+          // Add title if provided
+          if (documentTitle) {
+            formData.append('title', documentTitle)
+          }
+
+          // Add description if provided
+          if (documentDescription) {
+            formData.append('description', documentDescription)
+          }
+
+          const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+            ? {}
+            : { 'Authorization': `Bearer ${accessToken}` }
+
+          const uploadUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`
+          const response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers,
+            body: formData
+          })
+
+          if (response.ok) {
+            // Clear form fields
+            setDocumentCategory('')
+            setDocumentTitle('')
+            setDocumentDescription('')
+
+            // Reload documents
+            loadDocuments(horse.id, selectedBarnId)
+
+            // Stop camera
+            stopCamera()
+          } else {
+            throw new Error('Upload failed')
+          }
+        } catch (error) {
+          console.error('Failed to upload photo:', error)
+          alert('Failed to upload photo. Please try again.')
+        }
+
+        setUploadingDocument(false)
+      }, 'image/jpeg', 0.8)
+
+    } catch (error) {
+      console.error('Error capturing photo:', error)
+      alert('Failed to capture photo. Please try again.')
+      setTakingPhoto(false)
+    }
+  }
+
+  const getCategoryIcon = (category: string) => {
+    return documentCategories[category as keyof typeof documentCategories]?.split(' ')[0] || '📎'
   }
 
   const getStatusColor = (status: string) => {
@@ -1054,33 +1211,169 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
 
           {activeTab === 'documents' && (
             <div className="space-y-6">
-              {/* Upload Section */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                <div className="text-center">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <div className="mt-4">
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <span className="mt-2 block text-sm font-medium text-gray-900">
-                        {uploadingDocument ? 'Uploading...' : 'Upload a document'}
-                      </span>
-                      <input
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        className="sr-only"
-                        onChange={handleFileUpload}
-                        disabled={uploadingDocument}
-                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mov"
-                      />
-                    </label>
-                    <p className="mt-1 text-xs text-gray-500">
-                      PDF, DOC, TXT, images, videos up to 10MB
-                    </p>
+              {/* Enhanced Upload Section */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">📚 Upload Documents & Photos</h3>
+                  <p className="text-sm text-gray-500">
+                    💡 Upload veterinary reports, training notes, photos of injuries, or any documents related to {horse?.name}.
+                    Photos and documents will be analyzed by AI to help with health tracking and management.
+                  </p>
+                </div>
+
+                {/* Upload Method Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {/* File Upload */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary-400 transition-colors">
+                    <div className="text-center">
+                      <svg className="mx-auto h-8 w-8 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <div className="mt-2">
+                        <label htmlFor="file-upload" className="cursor-pointer">
+                          <span className="text-sm font-medium text-gray-900">
+                            📁 {uploadingDocument ? 'Uploading...' : 'Browse Files'}
+                          </span>
+                          <input
+                            id="file-upload"
+                            name="file-upload"
+                            type="file"
+                            className="sr-only"
+                            onChange={handleFileUpload}
+                            disabled={uploadingDocument}
+                            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.tiff,.gif,.mp4,.mov"
+                          />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PDF, DOC, TXT, Images, Videos
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Camera Capture */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary-400 transition-colors">
+                    <div className="text-center">
+                      <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <div className="mt-2">
+                        <button
+                          onClick={startCamera}
+                          disabled={takingPhoto || uploadingDocument}
+                          className="text-sm font-medium text-gray-900 hover:text-primary-600 disabled:opacity-50"
+                        >
+                          📸 {takingPhoto ? 'Opening Camera...' : 'Take Photo'}
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Capture injuries, conditions, etc.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Metadata Form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category (Optional)
+                    </label>
+                    <select
+                      value={documentCategory}
+                      onChange={(e) => setDocumentCategory(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Select Category</option>
+                      {Object.entries(documentCategories).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={documentTitle}
+                      onChange={(e) => setDocumentTitle(e.target.value)}
+                      placeholder="e.g., Annual Vaccination Record 2024"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={documentDescription}
+                    onChange={(e) => setDocumentDescription(e.target.value)}
+                    placeholder="Brief description of the document content..."
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
               </div>
+
+              {/* Camera Modal */}
+              {showCamera && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-medium">📸 Capture Photo</h3>
+                      <button
+                        onClick={stopCamera}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="text-center">
+                      <video
+                        id="camera-video"
+                        autoPlay
+                        playsInline
+                        ref={(video) => {
+                          if (video && cameraStream) {
+                            video.srcObject = cameraStream
+                          }
+                        }}
+                        className="w-full rounded-lg mb-4"
+                      />
+                      <div className="flex justify-center space-x-4">
+                        <button
+                          onClick={stopCamera}
+                          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={capturePhoto}
+                          disabled={uploadingDocument}
+                          className="px-4 py-2 bg-primary-600 text-white rounded-md text-sm font-medium hover:bg-primary-700 disabled:opacity-50 flex items-center space-x-2"
+                        >
+                          {uploadingDocument ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>📸</span>
+                              <span>Capture</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Documents List */}
               {documentsLoading ? (
@@ -1094,74 +1387,86 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">No documents</h3>
-                  <p className="mt-1 text-sm text-gray-500">Upload your first document to get started.</p>
+                  <p className="mt-1 text-sm text-gray-500">Upload your first document or take a photo to get started.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <h3 className="text-lg font-medium text-gray-900">📋 Documents & Photos</h3>
                   {documents.map((doc) => (
-                    <div key={doc.id} className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <span className="text-2xl">{getFileIcon(doc.file_type)}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {doc.filename}
-                          </p>
-                          <div className="flex items-center space-x-2 text-xs text-gray-500">
-                            <span>{formatFileSize(doc.file_size)}</span>
-                            <span>•</span>
-                            <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
-                            {doc.category && (
-                              <>
-                                <span>•</span>
-                                <span className="capitalize">{doc.category}</span>
-                              </>
+                    <div key={doc.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3 flex-1 min-w-0">
+                          <span className="text-2xl mt-1">
+                            {doc.document_category ? getCategoryIcon(doc.document_category) : getFileIcon(doc.file_type)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {doc.title || doc.filename}
+                              </p>
+                              {doc.document_category && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {documentCategories[doc.document_category as keyof typeof documentCategories]?.replace(/^[^\s]+ /, '') || doc.document_category}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
+                              <span>{formatFileSize(doc.file_size)}</span>
+                              <span>•</span>
+                              <span>{new Date(doc.upload_date).toLocaleDateString()}</span>
+                            </div>
+                            {doc.description && (
+                              <p className="text-xs text-gray-600 mt-1">
+                                {doc.description}
+                              </p>
+                            )}
+                            {doc.title && doc.title !== doc.filename && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                File: {doc.filename}
+                              </p>
                             )}
                           </div>
-                          {doc.description && (
-                            <p className="text-xs text-gray-600 truncate mt-1">
-                              {doc.description}
-                            </p>
-                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => {
-                            // Download document
-                            const downloadUrl = `${import.meta.env.VITE_API_URL}/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`
-                            const accessToken = localStorage.getItem('access_token')
-                            const headers: Record<string, string> = accessToken && accessToken !== 'dev_token_placeholder' ? { 'Authorization': `Bearer ${accessToken}` } : {}
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            onClick={() => {
+                              const downloadUrl = `${import.meta.env.VITE_API_URL}/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`
+                              const accessToken = localStorage.getItem('access_token')
+                              const headers: Record<string, string> = accessToken && accessToken !== 'dev_token_placeholder' ? { 'Authorization': `Bearer ${accessToken}` } : {}
 
-                            fetch(downloadUrl, { headers })
-                              .then(response => response.blob())
-                              .then(blob => {
-                                const url = URL.createObjectURL(blob)
-                                const a = document.createElement('a')
-                                a.href = url
-                                a.download = doc.filename
-                                a.click()
-                                URL.revokeObjectURL(url)
-                              })
-                              .catch(console.error)
-                          }}
-                          className="p-1 text-gray-400 hover:text-gray-600"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm('Are you sure you want to delete this document?')) {
-                              deleteDocument(doc.id)
-                            }
-                          }}
-                          className="p-1 text-red-400 hover:text-red-600"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                              fetch(downloadUrl, { headers })
+                                .then(response => response.blob())
+                                .then(blob => {
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = doc.filename
+                                  a.click()
+                                  URL.revokeObjectURL(url)
+                                })
+                                .catch(console.error)
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-200"
+                            title="Download"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this document?')) {
+                                deleteDocument(doc.id)
+                              }
+                            }}
+                            className="p-2 text-red-400 hover:text-red-600 rounded-md hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
