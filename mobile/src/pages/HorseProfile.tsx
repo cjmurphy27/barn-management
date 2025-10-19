@@ -114,6 +114,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
   const [isEditing, setIsEditing] = useState(false)
   const [editFormData, setEditFormData] = useState<Partial<Horse>>({})
   const [saving, setSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   useEffect(() => {
     if (id && user && selectedBarnId) {
@@ -212,6 +213,62 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       console.error('Failed to load documents:', error)
     }
     setDocumentsLoading(false)
+  }
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !horse || !selectedBarnId) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image file size must be less than 10MB')
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) {
+        throw new Error('Not authenticated')
+      }
+
+      const formData = new FormData()
+      formData.append('photo', file)
+
+      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
+        ? {}
+        : { 'Authorization': `Bearer ${accessToken}` }
+
+      const uploadUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/photo?organization_id=${selectedBarnId}`
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers,
+        body: formData
+      })
+
+      if (response.ok) {
+        // Reload horse photo
+        loadHorsePhoto(horse.id, selectedBarnId)
+        // Update horse data to reflect the new photo
+        const updatedHorse = { ...horse, profile_photo_path: file.name }
+        setHorse(updatedHorse)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Upload failed')
+      }
+    } catch (error) {
+      console.error('Failed to upload photo:', error)
+      alert(`Failed to upload photo: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+    setUploadingPhoto(false)
+    // Reset file input
+    event.target.value = ''
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -514,7 +571,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-start space-x-4">
           {/* Horse Photo */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 relative">
             {photoLoading ? (
               <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
@@ -536,6 +593,32 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                 <span className="text-primary-600 font-semibold text-2xl">
                   {getGenderIcon(horse.gender)}
                 </span>
+              </div>
+            )}
+            {/* Photo Upload Button - only show when editing */}
+            {isEditing && (
+              <div className="absolute -bottom-2 -right-2">
+                <label htmlFor="photo-upload" className="cursor-pointer">
+                  <div className="bg-primary-600 hover:bg-primary-700 text-white rounded-full p-2 shadow-lg transition-colors">
+                    {uploadingPhoto ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <input
+                    id="photo-upload"
+                    name="photo-upload"
+                    type="file"
+                    className="sr-only"
+                    onChange={handlePhotoUpload}
+                    disabled={uploadingPhoto}
+                    accept="image/*"
+                  />
+                </label>
               </div>
             )}
           </div>

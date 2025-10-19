@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import HorsesList from './pages/HorsesList'
 import HorseProfile from './pages/HorseProfile'
+import AddHorse from './pages/AddHorse'
 import Calendar from './pages/Calendar'
 import Supplies from './pages/Supplies'
 import Menu from './pages/Menu'
@@ -320,6 +321,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/horses" element={<HorsesList user={user} selectedBarnId={selectedBarnId} />} />
+        <Route path="/horses/new" element={<AddHorse user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/horses/:id" element={<HorseProfile user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/horses/:id/ai" element={<HorseAI user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/calendar" element={<Calendar user={user} selectedBarnId={selectedBarnId} />} />
