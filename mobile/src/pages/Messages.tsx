@@ -368,17 +368,21 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         endpoint += '/with-image'
         body = formData
       } else {
-        // JSON for text-only posts
+        // JSON for text-only posts with organization_id as query parameter
+        endpoint += `?organization_id=${selectedBarnId}`
         headers['Content-Type'] = 'application/json'
         body = JSON.stringify({
-          ...newPost,
-          organization_id: selectedBarnId
+          title: newPost.title,
+          content: newPost.content,
+          category: newPost.category,
+          is_pinned: newPost.is_pinned,
+          tags: newPost.tags
         })
       }
 
       const apiResponse = await fetch(endpoint, {
         method: 'POST',
-        headers: selectedImage ? headers : { ...headers, 'Content-Type': 'application/json' },
+        headers,
         body
       })
 
