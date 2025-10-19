@@ -194,7 +194,6 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
     if (!accessToken || accessToken === 'dev_token_placeholder') return
 
     const photoPromises = horsesData
-      .filter(horse => horse.profile_photo_path)
       .map(async (horse) => {
         try {
           const photoUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/photo?organization_id=${organizationId}`

@@ -253,11 +253,8 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       })
 
       if (response.ok) {
-        // Reload horse photo
-        loadHorsePhoto(horse.id, selectedBarnId)
-        // Update horse data to reflect the new photo
-        const updatedHorse = { ...horse, profile_photo_path: file.name }
-        setHorse(updatedHorse)
+        // Reload the complete horse data from the backend to get the correct profile_photo_path
+        await loadHorseData()
       } else {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || 'Upload failed')
