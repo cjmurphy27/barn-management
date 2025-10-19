@@ -277,7 +277,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       console.log('Checking for existing supplies...')
       const existingSuppliesResponse = await suppliesApi.getAll(selectedBarnId)
 
-      if (existingSuppliesResponse.success && existingSuppliesResponse.data) {
+      if (existingSuppliesResponse.success && existingSuppliesResponse.data && Array.isArray(existingSuppliesResponse.data)) {
         const existingSupply = existingSuppliesResponse.data.find((supply: any) =>
           supply.name.toLowerCase() === item.description.toLowerCase() &&
           supply.category === item.category
