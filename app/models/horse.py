@@ -85,10 +85,7 @@ class Horse(Base):
     special_instructions = Column(Text, nullable=True)
     
     # Profile Photo
-    profile_photo_path = Column(String(500), nullable=True)  # Legacy field - keeping for backward compatibility
-    profile_photo_data = Column(Text, nullable=True)  # Base64 encoded image data
-    profile_photo_filename = Column(String(200), nullable=True)  # Original filename
-    profile_photo_mime_type = Column(String(50), nullable=True)  # MIME type (image/jpeg, etc.)
+    profile_photo_path = Column(String(500), nullable=True)  # File path for photo storage
     
     # Status & Flags
     is_active = Column(Boolean, default=True)
@@ -180,9 +177,6 @@ class Horse(Base):
             "last_farrier": self.last_farrier.isoformat() if self.last_farrier else None,
             "notes": self.notes,
             "profile_photo_path": self.profile_photo_path,
-            "profile_photo_data": self.profile_photo_data,
-            "profile_photo_filename": self.profile_photo_filename,
-            "profile_photo_mime_type": self.profile_photo_mime_type,
             "is_active": self.is_active,
             "is_retired": self.is_retired,
             "is_for_sale": self.is_for_sale,
