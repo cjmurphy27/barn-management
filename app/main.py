@@ -153,6 +153,15 @@ async def startup_event():
             logger.info("Database connection successful")
         else:
             logger.error("Database connection failed")
+
+        # Initialize storage directories
+        from app.config.storage import StorageConfig
+        storage_initialized = StorageConfig.ensure_storage_structure()
+        if storage_initialized:
+            logger.info("Storage directories initialized successfully")
+        else:
+            logger.warning("Storage initialization failed - will create directories on demand")
+
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
 

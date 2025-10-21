@@ -1,27 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
+import mimetypes
 import os
 import uuid
-import shutil
-import mimetypes
 from datetime import datetime
+from pathlib import Path
 
 from app.database import get_db
 from app.models.horse import Horse
+from app.config.storage import StorageConfig
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["horse-photos"])
 
 # File storage configuration
-UPLOAD_DIR = "storage/horse_photos"
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-
-# Ensure upload directory exists
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 def validate_image_file(file: UploadFile) -> tuple[bool, str]:
     """Validate uploaded image file"""
@@ -35,26 +33,32 @@ def validate_image_file(file: UploadFile) -> tuple[bool, str]:
         if ext not in ALLOWED_IMAGE_EXTENSIONS:
             return False, f"File type '{ext}' not allowed. Supported: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
 
+    # Check MIME type
+    if file.content_type and file.content_type not in ALLOWED_MIME_TYPES:
+        return False, f"MIME type '{file.content_type}' not allowed. Supported: {', '.join(ALLOWED_MIME_TYPES)}"
+
     return True, "Valid"
 
-def save_uploaded_horse_photo(file: UploadFile, organization_id: str, horse_id: int) -> tuple[str, str]:
-    """Save uploaded horse photo and return (filename, file_path)"""
+def save_image_to_storage(file: UploadFile) -> tuple[str, str]:
+    """Save uploaded image to volume storage and return (file_path, original_filename)"""
+    # Ensure storage directory exists
+    storage_dir = StorageConfig.get_horse_photos_dir()
+
     # Generate unique filename
-    file_uuid = str(uuid.uuid4())
-    original_filename = file.filename or "unknown"
-    _, ext = os.path.splitext(original_filename.lower())
-    filename = f"horse_{horse_id}_{file_uuid}{ext}"
+    file_extension = ""
+    if file.filename:
+        _, file_extension = os.path.splitext(file.filename.lower())
 
-    # Create organization subdirectory
-    org_dir = os.path.join(UPLOAD_DIR, organization_id)
-    os.makedirs(org_dir, exist_ok=True)
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = storage_dir / unique_filename
 
-    # Save file
-    file_path = os.path.join(org_dir, filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Save file to storage
+    file_content = file.file.read()
 
-    return filename, file_path
+    with open(file_path, "wb") as f:
+        f.write(file_content)
+
+    return str(file_path), file.filename or unique_filename
 
 # JWT Authentication (matching Message Board pattern)
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -137,19 +141,25 @@ async def upload_horse_photo(
             except Exception as e:
                 logger.warning(f"Could not remove old photo: {str(e)}")
 
-        # Save new photo
-        filename, file_path = save_uploaded_horse_photo(photo, organization_id, horse_id)
+        # Save image to volume storage
+        file_path, original_filename = save_image_to_storage(photo)
 
-        # Update horse record
+        # Update horse record with file path
         horse.profile_photo_path = file_path
+        horse.profile_photo_filename = original_filename
+        horse.profile_photo_mime_type = photo.content_type or "image/jpeg"
+        # Clear base64 fields (legacy)
+        horse.profile_photo_data = None
+
         db.commit()
 
-        logger.info(f"Updated photo for horse {horse_id}: {filename}")
+        logger.info(f"Updated photo for horse {horse_id}: {photo.filename} saved to {file_path}")
 
         return {
             "message": "Photo uploaded successfully",
-            "filename": filename,
-            "horse_id": horse_id
+            "filename": photo.filename,
+            "horse_id": horse_id,
+            "mime_type": horse.profile_photo_mime_type
         }
 
     except HTTPException:
@@ -185,22 +195,35 @@ async def get_horse_photo(
         if not horse:
             raise HTTPException(status_code=404, detail="Horse not found")
 
-        if not horse.profile_photo_path:
-            raise HTTPException(status_code=404, detail="No photo found for this horse")
+        # Check for file-based photo storage (primary format)
+        if horse.profile_photo_path and os.path.exists(horse.profile_photo_path):
+            mime_type = horse.profile_photo_mime_type or mimetypes.guess_type(horse.profile_photo_path)[0] or "image/jpeg"
+            return FileResponse(
+                path=horse.profile_photo_path,
+                media_type=mime_type,
+                filename=f"{horse.name}_profile.jpg"
+            )
 
-        # Check if file exists
-        if not os.path.exists(horse.profile_photo_path):
-            raise HTTPException(status_code=404, detail="Photo file not found on disk")
+        # Fallback to base64 data (legacy format)
+        if horse.profile_photo_data:
+            try:
+                import base64
+                image_data = base64.b64decode(horse.profile_photo_data)
+                mime_type = horse.profile_photo_mime_type or "image/jpeg"
 
-        # Determine mime type
-        mime_type = mimetypes.guess_type(horse.profile_photo_path)[0] or "image/jpeg"
+                return Response(
+                    content=image_data,
+                    media_type=mime_type,
+                    headers={
+                        "Content-Disposition": f'inline; filename="{horse.name}_profile.jpg"'
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Error decoding base64 photo for horse {horse_id}: {str(e)}")
+                raise HTTPException(status_code=500, detail="Unable to decode stored photo")
 
-        # Return the file
-        return FileResponse(
-            path=horse.profile_photo_path,
-            media_type=mime_type,
-            filename=f"{horse.name}_profile.jpg"
-        )
+        # No photo found
+        raise HTTPException(status_code=404, detail="No photo found for this horse")
 
     except HTTPException:
         raise
@@ -234,19 +257,24 @@ async def delete_horse_photo(
         if not horse:
             raise HTTPException(status_code=404, detail="Horse not found")
 
-        if not horse.profile_photo_path:
+        # Check if any photo exists
+        has_photo = horse.profile_photo_path or horse.profile_photo_data
+        if not has_photo:
             raise HTTPException(status_code=404, detail="No photo found for this horse")
 
-        # Remove file if it exists
-        if os.path.exists(horse.profile_photo_path):
+        # Remove file-based photo if it exists
+        if horse.profile_photo_path and os.path.exists(horse.profile_photo_path):
             try:
                 os.remove(horse.profile_photo_path)
                 logger.info(f"Deleted photo file: {horse.profile_photo_path}")
             except Exception as e:
                 logger.warning(f"Could not delete photo file: {str(e)}")
 
-        # Clear photo path from database
+        # Clear all photo fields from database
         horse.profile_photo_path = None
+        horse.profile_photo_data = None
+        horse.profile_photo_filename = None
+        horse.profile_photo_mime_type = None
         db.commit()
 
         logger.info(f"Deleted photo for horse {horse_id}")
