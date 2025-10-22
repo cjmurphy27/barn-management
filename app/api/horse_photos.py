@@ -146,10 +146,6 @@ async def upload_horse_photo(
 
         # Update horse record with file path
         horse.profile_photo_path = file_path
-        horse.profile_photo_filename = original_filename
-        horse.profile_photo_mime_type = photo.content_type or "image/jpeg"
-        # Clear base64 fields (legacy)
-        horse.profile_photo_data = None
 
         db.commit()
 
@@ -159,7 +155,7 @@ async def upload_horse_photo(
             "message": "Photo uploaded successfully",
             "filename": photo.filename,
             "horse_id": horse_id,
-            "mime_type": horse.profile_photo_mime_type
+            "mime_type": photo.content_type or "image/jpeg"
         }
 
     except HTTPException:
@@ -195,32 +191,14 @@ async def get_horse_photo(
         if not horse:
             raise HTTPException(status_code=404, detail="Horse not found")
 
-        # Check for file-based photo storage (primary format)
+        # Check for file-based photo storage
         if horse.profile_photo_path and os.path.exists(horse.profile_photo_path):
-            mime_type = horse.profile_photo_mime_type or mimetypes.guess_type(horse.profile_photo_path)[0] or "image/jpeg"
+            mime_type = mimetypes.guess_type(horse.profile_photo_path)[0] or "image/jpeg"
             return FileResponse(
                 path=horse.profile_photo_path,
                 media_type=mime_type,
                 filename=f"{horse.name}_profile.jpg"
             )
-
-        # Fallback to base64 data (legacy format)
-        if horse.profile_photo_data:
-            try:
-                import base64
-                image_data = base64.b64decode(horse.profile_photo_data)
-                mime_type = horse.profile_photo_mime_type or "image/jpeg"
-
-                return Response(
-                    content=image_data,
-                    media_type=mime_type,
-                    headers={
-                        "Content-Disposition": f'inline; filename="{horse.name}_profile.jpg"'
-                    }
-                )
-            except Exception as e:
-                logger.error(f"Error decoding base64 photo for horse {horse_id}: {str(e)}")
-                raise HTTPException(status_code=500, detail="Unable to decode stored photo")
 
         # No photo found
         raise HTTPException(status_code=404, detail="No photo found for this horse")
@@ -258,8 +236,7 @@ async def delete_horse_photo(
             raise HTTPException(status_code=404, detail="Horse not found")
 
         # Check if any photo exists
-        has_photo = horse.profile_photo_path or horse.profile_photo_data
-        if not has_photo:
+        if not horse.profile_photo_path:
             raise HTTPException(status_code=404, detail="No photo found for this horse")
 
         # Remove file-based photo if it exists
@@ -270,11 +247,8 @@ async def delete_horse_photo(
             except Exception as e:
                 logger.warning(f"Could not delete photo file: {str(e)}")
 
-        # Clear all photo fields from database
+        # Clear photo field from database
         horse.profile_photo_path = None
-        horse.profile_photo_data = None
-        horse.profile_photo_filename = None
-        horse.profile_photo_mime_type = None
         db.commit()
 
         logger.info(f"Deleted photo for horse {horse_id}")
