@@ -84,7 +84,7 @@ async def get_horse(
             detail="Unable to retrieve horse"
         )
 
-@router.post("/horses/", response_model=HorseResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/horses", response_model=HorseResponse, status_code=status.HTTP_201_CREATED)
 async def create_horse(
     horse_data: HorseCreate,
     organization_id: str = Query(..., description="Organization/barn ID"),
