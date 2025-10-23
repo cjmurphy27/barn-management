@@ -43,17 +43,17 @@ async def create_supply(
         # Enhanced logging for debugging Training Diet issue
         logger.info(f"Creating supply: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
 
-        # Check for duplicate name in same category within organization
+        # Check for duplicate name in same category within organization scope
         # Use case-insensitive comparison and check ALL supplies (active and inactive)
-        # to prevent duplicates entirely
+        # to prevent duplicates entirely. IMPORTANT: Always scope by organization_id
+        # to prevent conflicts between null-organization supplies and org-specific supplies
         query = db.query(Supply).filter(
             and_(
                 func.lower(Supply.name) == func.lower(supply.name),
-                Supply.category == supply.category
+                Supply.category == supply.category,
+                Supply.organization_id == organization_id  # Always filter by org_id (including None)
             )
         )
-        if organization_id:
-            query = query.filter(Supply.organization_id == organization_id)
 
         # Log the exact query for debugging
         logger.info(f"Duplicate check query: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
