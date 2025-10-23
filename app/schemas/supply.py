@@ -55,7 +55,7 @@ class SupplyBase(BaseModel):
         return v
 
 class SupplyCreate(SupplyBase):
-    pass
+    organization_id: str = Field(..., description="Organization ID")
 
 class SupplyUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)

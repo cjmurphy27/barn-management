@@ -35,11 +35,12 @@ router = APIRouter(prefix="/api/v1/supplies", tags=["supplies"])
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_supply(
     supply: SupplyCreate,
-    organization_id: Optional[str] = Query(None, description="Organization/barn ID"),
     db: Session = Depends(get_db)
 ):
     """Create a new supply item"""
     try:
+        # Get organization_id from request body (supply object) instead of query parameter
+        organization_id = supply.organization_id
         # Enhanced logging for debugging Training Diet issue
         logger.info(f"Creating supply: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
 
