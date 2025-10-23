@@ -40,6 +40,9 @@ async def create_supply(
 ):
     """Create a new supply item"""
     try:
+        # Enhanced logging for debugging Training Diet issue
+        logger.info(f"Creating supply: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
+
         # Check for duplicate name in same category within organization
         query = db.query(Supply).filter(
             and_(
@@ -50,26 +53,37 @@ async def create_supply(
         )
         if organization_id:
             query = query.filter(Supply.organization_id == organization_id)
-        
+
+        # Log the exact query for debugging
+        logger.info(f"Duplicate check query: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
+
         existing = query.first()
-        
+
         if existing:
+            logger.warning(f"Duplicate found: id={existing.id}, name='{existing.name}', category='{existing.category}', active={existing.is_active}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Supply '{supply.name}' already exists in category '{supply.category.value}'"
             )
+
+        logger.info(f"No duplicate found, proceeding to create supply")
         
         # Create new supply with organization context
         supply_dict = supply.dict()
         if organization_id:
             supply_dict['organization_id'] = organization_id
+
+        logger.info(f"Supply dict for creation: {supply_dict}")
         db_supply = Supply(**supply_dict)
-        
+
+        logger.info(f"Adding supply to session...")
         db.add(db_supply)
+
+        logger.info(f"Committing supply to database...")
         db.commit()
         db.refresh(db_supply)
-        
-        logger.info(f"Created supply: {db_supply.name}")
+
+        logger.info(f"Successfully created supply: {db_supply.name} with ID: {db_supply.id}")
         return db_supply.to_dict()
         
     except HTTPException:
@@ -77,9 +91,20 @@ async def create_supply(
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating supply: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception details: {repr(e)}")
+
+        # Check if this is an integrity constraint violation
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            logger.error(f"Database constraint violation detected for supply '{supply.name}'")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Supply '{supply.name}' already exists in category '{supply.category.value}'"
+            )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create supply"
+            detail=f"Failed to create supply: {str(e)}"
         )
 
 @router.get("/")
