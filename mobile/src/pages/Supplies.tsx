@@ -286,8 +286,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       // First check if supply already exists
       console.log('Checking for existing supplies...')
       const existingSuppliesResponse = await suppliesApi.getAll(selectedBarnId)
+      console.log('Full API response:', existingSuppliesResponse)
 
       if (existingSuppliesResponse.success && existingSuppliesResponse.data && Array.isArray(existingSuppliesResponse.data)) {
+        console.log('API response data length:', existingSuppliesResponse.data.length)
         console.log('Searching for match:', {
           itemName: item.description,
           itemCategory: item.category,
@@ -337,6 +339,14 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
           }
           return
         }
+      } else {
+        console.log('API response format issue:', {
+          success: existingSuppliesResponse.success,
+          hasData: !!existingSuppliesResponse.data,
+          dataType: typeof existingSuppliesResponse.data,
+          isArray: Array.isArray(existingSuppliesResponse.data),
+          fullResponse: existingSuppliesResponse
+        })
       }
 
       // If no existing supply found, create new one
