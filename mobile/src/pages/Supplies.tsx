@@ -288,10 +288,18 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const existingSuppliesResponse = await suppliesApi.getAll(selectedBarnId)
 
       if (existingSuppliesResponse.success && existingSuppliesResponse.data && Array.isArray(existingSuppliesResponse.data)) {
-        const existingSupply = existingSuppliesResponse.data.find((supply: any) =>
-          supply.name.toLowerCase() === item.description.toLowerCase() &&
-          supply.category === item.category
-        )
+        console.log('Searching for match:', {
+          itemName: item.description,
+          itemCategory: item.category,
+          existingSupplies: existingSuppliesResponse.data.map((s: any) => ({ name: s.name, category: s.category }))
+        })
+
+        const existingSupply = existingSuppliesResponse.data.find((supply: any) => {
+          const nameMatch = supply.name.toLowerCase() === item.description.toLowerCase()
+          const categoryMatch = supply.category === item.category || supply.category.toLowerCase() === item.category.toLowerCase()
+          console.log('Checking supply:', { name: supply.name, category: supply.category, nameMatch, categoryMatch })
+          return nameMatch && categoryMatch
+        })
 
         if (existingSupply) {
           console.log('Found existing supply, updating stock...', existingSupply)
