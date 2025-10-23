@@ -72,7 +72,8 @@ function App() {
         : 'http://localhost:3001' // Local development
 
       // First, try to exchange code with backend (normal flow)
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/auth/exchange-code`, {
+      const baseUrl = import.meta.env.VITE_API_URL.replace(/\/$/, '') // Remove trailing slash
+      const response = await fetch(`${baseUrl}/api/v1/auth/exchange-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

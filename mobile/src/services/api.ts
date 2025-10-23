@@ -1,6 +1,6 @@
 // API service for communicating with FastAPI backend
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '') // Remove trailing slash
 
 // Note: Organization ID will be dynamically obtained from authenticated user
 
