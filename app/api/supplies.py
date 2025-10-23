@@ -44,11 +44,12 @@ async def create_supply(
         logger.info(f"Creating supply: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
 
         # Check for duplicate name in same category within organization
+        # Use case-insensitive comparison and check ALL supplies (active and inactive)
+        # to prevent duplicates entirely
         query = db.query(Supply).filter(
             and_(
-                Supply.name == supply.name,
-                Supply.category == supply.category,
-                Supply.is_active == True
+                func.lower(Supply.name) == func.lower(supply.name),
+                Supply.category == supply.category
             )
         )
         if organization_id:
@@ -56,6 +57,12 @@ async def create_supply(
 
         # Log the exact query for debugging
         logger.info(f"Duplicate check query: name='{supply.name}', category='{supply.category}', organization_id='{organization_id}'")
+
+        # Get all matches for detailed logging
+        all_matches = query.all()
+        logger.info(f"Duplicate check found {len(all_matches)} matches")
+        for match in all_matches:
+            logger.info(f"Match found: id={match.id}, name='{match.name}', category='{match.category}', active={match.is_active}, org_id='{match.organization_id}'")
 
         existing = query.first()
 
