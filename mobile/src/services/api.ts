@@ -546,7 +546,7 @@ export const calendarApi = {
 
 // Supplies API functions
 export const suppliesApi = {
-  getAll: (organizationId: string) => apiClient.get(`/api/v1/supplies/?organization_id=${organizationId}`),
+  getAll: (organizationId: string) => apiClient.get(`/api/v1/supplies/?organization_id=${organizationId}&active_only=false`),
   getDashboard: (organizationId: string) => apiClient.get(`/api/v1/supplies/dashboard?organization_id=${organizationId}`),
   create: (data: any, organizationId: string) => apiClient.post(`/api/v1/supplies/`, { ...data, organization_id: organizationId }),
   update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/supplies/${id}`, { ...data, organization_id: organizationId }),
