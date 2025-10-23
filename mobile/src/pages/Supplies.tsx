@@ -245,6 +245,16 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       return
     }
 
+    // Skip non-inventory items like delivery charges, taxes, fees, etc.
+    const nonInventoryKeywords = ['delivery', 'shipping', 'tax', 'fee', 'charge', 'discount', 'tip', 'gratuity', 'service']
+    const itemName = item.description.toLowerCase()
+    const isNonInventoryItem = nonInventoryKeywords.some(keyword => itemName.includes(keyword))
+
+    if (isNonInventoryItem) {
+      alert(`"${item.description}" appears to be a service charge rather than an inventory item. Skipping inventory addition.`)
+      return
+    }
+
     console.log('Starting addReceiptItemToInventory with:', { item, index, selectedBarnId })
     setAddingToInventory(prev => ({ ...prev, [index]: true }))
     try {
@@ -802,30 +812,49 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                         <div className="mt-4">
                           <h5 className="font-medium text-green-800 mb-2">Items to Add:</h5>
                           <div className="space-y-2">
-                            {receiptResults.line_items.map((item: any, index: number) => (
-                              <div key={index} className="bg-white rounded p-3 border">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <p className="font-medium">{item.description}</p>
-                                    <p className="text-sm text-gray-600">
-                                      Qty: {item.quantity} • Category: {getCategoryLabel(item.category)}
-                                    </p>
-                                    {item.unit_price && (
+                            {receiptResults.line_items.map((item: any, index: number) => {
+                              // Check if this is a non-inventory item
+                              const nonInventoryKeywords = ['delivery', 'shipping', 'tax', 'fee', 'charge', 'discount', 'tip', 'gratuity', 'service']
+                              const itemName = item.description.toLowerCase()
+                              const isNonInventoryItem = nonInventoryKeywords.some(keyword => itemName.includes(keyword))
+
+                              return (
+                                <div key={index} className={`rounded p-3 border ${isNonInventoryItem ? 'bg-gray-100 border-gray-300' : 'bg-white'}`}>
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-2">
+                                        <p className="font-medium">{item.description}</p>
+                                        {isNonInventoryItem && (
+                                          <span className="text-xs bg-gray-500 text-white px-2 py-1 rounded">Service Charge</span>
+                                        )}
+                                      </div>
                                       <p className="text-sm text-gray-600">
-                                        Price: {formatCurrency(item.unit_price)} each
+                                        Qty: {item.quantity} • Category: {getCategoryLabel(item.category)}
                                       </p>
+                                      {item.unit_price && (
+                                        <p className="text-sm text-gray-600">
+                                          Price: {formatCurrency(item.unit_price)} each
+                                        </p>
+                                      )}
+                                      {isNonInventoryItem && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          This appears to be a service charge and won't be added to inventory
+                                        </p>
+                                      )}
+                                    </div>
+                                    {!isNonInventoryItem && (
+                                      <button
+                                        onClick={() => addReceiptItemToInventory(item, index)}
+                                        disabled={addingToInventory[index]}
+                                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                                      >
+                                        {addingToInventory[index] ? 'Adding...' : 'Add to Inventory'}
+                                      </button>
                                     )}
                                   </div>
-                                  <button
-                                    onClick={() => addReceiptItemToInventory(item, index)}
-                                    disabled={addingToInventory[index]}
-                                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
-                                  >
-                                    {addingToInventory[index] ? 'Adding...' : 'Add to Inventory'}
-                                  </button>
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         </div>
                       )}
