@@ -1,12 +1,14 @@
 // API service for communicating with FastAPI backend
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '') // Remove trailing slash
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '') // Remove trailing slash
 
 // Helper function to build API URLs with proper slash handling
 export const buildApiUrl = (path: string): string => {
   const baseUrl = API_BASE_URL
   const cleanPath = path.startsWith('/') ? path : `/${path}`
-  return `${baseUrl}${cleanPath}`.replace(/\/+/g, '/').replace(/\/$/, '')
+  // Don't replace double slashes in the protocol (https://)
+  const fullUrl = `${baseUrl}${cleanPath}`
+  return fullUrl.replace(/([^:]\/)\/+/g, '$1').replace(/\/$/, '')
 }
 
 // Note: Organization ID will be dynamically obtained from authenticated user

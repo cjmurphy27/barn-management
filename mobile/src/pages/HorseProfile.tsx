@@ -1430,7 +1430,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                         <div className="flex items-center space-x-2 ml-4">
                           <button
                             onClick={() => {
-                              const downloadUrl = buildApiUrl(`/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`)
+                              const downloadUrl = buildApiUrl(`/api/v1/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`)
                               const accessToken = localStorage.getItem('access_token')
                               const headers: Record<string, string> = accessToken && accessToken !== 'dev_token_placeholder' ? { 'Authorization': `Bearer ${accessToken}` } : {}
 
