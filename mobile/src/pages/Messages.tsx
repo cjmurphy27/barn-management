@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
+import { buildApiUrl } from '../services/api'
 
 interface ImageWithAuthProps {
   src: string
@@ -228,7 +229,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       if (searchTerm) params.append('search', searchTerm)
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/whiteboard/posts?${params.toString()}`,
+        buildApiUrl(`/api/v1/whiteboard/posts?${params.toString()}`),
         { headers }
       )
 
@@ -264,7 +265,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       for (const org of user.organizations) {
         try {
           const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/v1/whiteboard/posts/${postId}?organization_id=${org.barn_id}&include_attachments=true`,
+            buildApiUrl(`/api/v1/whiteboard/posts/${postId}?organization_id=${org.barn_id}&include_attachments=true`),
             { headers }
           )
 
@@ -348,7 +349,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      let endpoint = `${import.meta.env.VITE_API_URL}/api/v1/whiteboard/posts`
+      let endpoint = buildApiUrl(`/api/v1/whiteboard/posts`)
       let body: FormData | string
 
       if (selectedImage) {
@@ -439,7 +440,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/whiteboard/posts/${selectedPost.id}/comments?organization_id=${barnId}`,
+        buildApiUrl(`/api/v1/whiteboard/posts/${selectedPost.id}/comments?organization_id=${barnId}`),
         {
           method: 'POST',
           headers,
@@ -488,7 +489,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         : { 'Authorization': `Bearer ${accessToken}` }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/whiteboard/posts/${post.id}?organization_id=${selectedBarnId}`,
+        buildApiUrl(`/api/v1/whiteboard/posts/${post.id}?organization_id=${selectedBarnId}`),
         {
           method: 'DELETE',
           headers
@@ -597,7 +598,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
               {selectedPost.attachment && (
                 <div className="mb-3">
                   <ImageWithAuth
-                    src={`${import.meta.env.VITE_API_URL}/api/v1/whiteboard/images/${selectedPost.attachment.id}?organization_id=${selectedPost.organization_id}`}
+                    src={buildApiUrl(`/api/v1/whiteboard/images/${selectedPost.attachment.id}?organization_id=${selectedPost.organization_id}`)}
                     alt={selectedPost.attachment.original_filename}
                     className="max-w-full h-auto rounded-lg border"
                     onError={(src) => {

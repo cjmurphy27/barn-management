@@ -112,7 +112,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
         : { 'Authorization': `Bearer ${accessToken}` }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/calendar/upcoming?organization_id=${selectedBarnId}&days_ahead=7&limit=5`,
+        buildApiUrl(`/api/v1/calendar/upcoming?organization_id=${selectedBarnId}&days_ahead=7&limit=5`),
         { headers }
       )
 
@@ -139,7 +139,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
         : { 'Authorization': `Bearer ${accessToken}` }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/whiteboard/posts?organization_id=${selectedBarnId}&limit=2`,
+        buildApiUrl(`/api/v1/whiteboard/posts?organization_id=${selectedBarnId}&limit=2`),
         { headers }
       )
 
