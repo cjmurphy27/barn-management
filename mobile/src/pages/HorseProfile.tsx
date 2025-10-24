@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { horseApi, medicalApi, feedApi, trainingApi, apiClient } from '../services/api'
+import { horseApi, medicalApi, feedApi, trainingApi, apiClient, buildApiUrl } from '../services/api'
 
 interface Horse {
   id: string
@@ -188,7 +188,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const photoUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horseId}/photo?organization_id=${organizationId}`
+      const photoUrl = buildApiUrl(`/api/v1/horses/${horseId}/photo?organization_id=${organizationId}`)
       const response = await fetch(photoUrl, { headers })
 
       if (response.ok) {
@@ -212,7 +212,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const documentsUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horseId}/documents?organization_id=${organizationId}`
+      const documentsUrl = buildApiUrl(`/api/v1/horses/${horseId}/documents?organization_id=${organizationId}`)
       const response = await fetch(documentsUrl, { headers })
 
       if (response.ok) {
@@ -255,7 +255,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const uploadUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/photo?organization_id=${selectedBarnId}`
+      const uploadUrl = buildApiUrl(`/api/v1/horses/${horse.id}/photo?organization_id=${selectedBarnId}`)
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers,
@@ -311,7 +311,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const uploadUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`
+      const uploadUrl = buildApiUrl(`/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`)
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers,
@@ -348,7 +348,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const deleteUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/documents/${documentId}?organization_id=${selectedBarnId}`
+      const deleteUrl = buildApiUrl(`/api/v1/horses/${horse.id}/documents/${documentId}?organization_id=${selectedBarnId}`)
       const response = await fetch(deleteUrl, {
         method: 'DELETE',
         headers
@@ -469,7 +469,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
             ? {}
             : { 'Authorization': `Bearer ${accessToken}` }
 
-          const uploadUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`
+          const uploadUrl = buildApiUrl(`/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`)
           const response = await fetch(uploadUrl, {
             method: 'POST',
             headers,
@@ -567,7 +567,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         }
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}?organization_id=${selectedBarnId}`,
+        buildApiUrl(`/api/v1/horses/${horse.id}?organization_id=${selectedBarnId}`),
         {
           method: 'PUT',
           headers,
@@ -1430,7 +1430,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                         <div className="flex items-center space-x-2 ml-4">
                           <button
                             onClick={() => {
-                              const downloadUrl = `${import.meta.env.VITE_API_URL}/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`
+                              const downloadUrl = buildApiUrl(`/horses/${horse!.id}/documents/${doc.id}/download?organization_id=${selectedBarnId}`)
                               const accessToken = localStorage.getItem('access_token')
                               const headers: Record<string, string> = accessToken && accessToken !== 'dev_token_placeholder' ? { 'Authorization': `Bearer ${accessToken}` } : {}
 
