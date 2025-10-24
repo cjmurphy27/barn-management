@@ -496,7 +496,8 @@ class ApiClient {
     // Don't set Content-Type for FormData - let browser set it
 
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const url = buildApiUrl(endpoint)
+      const response = await fetch(url, {
         method: 'POST',
         headers,
         body: formData
