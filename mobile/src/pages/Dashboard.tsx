@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { horseApi, apiClient } from '../services/api'
+import { horseApi, apiClient, buildApiUrl } from '../services/api'
 
 interface Horse {
   id: string
@@ -196,7 +196,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
     const photoPromises = horsesData
       .map(async (horse) => {
         try {
-          const photoUrl = `${import.meta.env.VITE_API_URL}/api/v1/horses/${horse.id}/photo?organization_id=${organizationId}`
+          const photoUrl = buildApiUrl(`/api/v1/horses/${horse.id}/photo?organization_id=${organizationId}`)
           const response = await fetch(photoUrl, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
           })
