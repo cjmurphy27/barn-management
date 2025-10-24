@@ -523,7 +523,7 @@ export const apiClient = new ApiClient(API_BASE_URL)
 export const horseApi = {
   getAll: (organizationId: string) => apiClient.get(`/api/v1/horses/?active_only=true&sort_by=age_years&sort_order=asc&limit=100&organization_id=${organizationId}`),
   getById: (id: string, organizationId: string) => apiClient.get(`/api/v1/horses/${id}?organization_id=${organizationId}`),
-  create: (data: any, organizationId: string) => apiClient.post('/api/v1/horses', { ...data, organization_id: organizationId }),
+  create: (data: any, organizationId: string) => apiClient.post('/api/v1/horses/', { ...data, organization_id: organizationId }),
   update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/horses/${id}`, { ...data, organization_id: organizationId }),
   delete: (id: string, organizationId: string) => apiClient.delete(`/api/v1/horses/${id}?organization_id=${organizationId}`),
 }
