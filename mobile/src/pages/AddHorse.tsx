@@ -306,9 +306,9 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">Select Gender</option>
-                  <option value="mare">Mare</option>
-                  <option value="stallion">Stallion</option>
-                  <option value="gelding">Gelding</option>
+                  <option value="Mare">Mare</option>
+                  <option value="Stallion">Stallion</option>
+                  <option value="Gelding">Gelding</option>
                 </select>
               </div>
               <div>
