@@ -3,10 +3,11 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '') // Remove trailing slash
 
 // Debug logging for Railway deployment
-console.log('🔧 API Configuration:', {
+console.log('🔧 API Configuration v2:', {
   env: import.meta.env.VITE_API_URL,
   baseUrl: API_BASE_URL,
-  isDev: import.meta.env.DEV
+  isDev: import.meta.env.DEV,
+  timestamp: new Date().toISOString()
 })
 
 // Helper function to build API URLs with proper slash handling
@@ -523,7 +524,10 @@ export const apiClient = new ApiClient(API_BASE_URL)
 export const horseApi = {
   getAll: (organizationId: string) => apiClient.get(`/api/v1/horses/?active_only=true&sort_by=age_years&sort_order=asc&limit=100&organization_id=${organizationId}`),
   getById: (id: string, organizationId: string) => apiClient.get(`/api/v1/horses/${id}?organization_id=${organizationId}`),
-  create: (data: any, organizationId: string) => apiClient.post('/api/v1/horses/', { ...data, organization_id: organizationId }),
+  create: (data: any, organizationId: string) => {
+    console.log('🐎 Creating horse with endpoint: /api/v1/horses/ (note the trailing slash)')
+    return apiClient.post('/api/v1/horses/', { ...data, organization_id: organizationId })
+  },
   update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/horses/${id}`, { ...data, organization_id: organizationId }),
   delete: (id: string, organizationId: string) => apiClient.delete(`/api/v1/horses/${id}?organization_id=${organizationId}`),
 }
