@@ -1,6 +1,13 @@
 // API service for communicating with FastAPI backend
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '') // Remove trailing slash
+// Force HTTPS for Railway production URLs, fallback to localhost for dev
+let API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '') // Remove trailing slash
+
+// Force HTTPS if we detect a Railway URL that accidentally got HTTP
+if (API_BASE_URL.startsWith('http://') && API_BASE_URL.includes('railway.app')) {
+  API_BASE_URL = API_BASE_URL.replace('http://', 'https://')
+  console.log('🚨 FORCED API_BASE_URL from HTTP to HTTPS:', API_BASE_URL)
+}
 
 // Debug logging for Railway deployment
 console.log('🔧 API Configuration v2:', {
@@ -15,8 +22,35 @@ export const buildApiUrl = (path: string): string => {
   const baseUrl = API_BASE_URL
   const cleanPath = path.startsWith('/') ? path : `/${path}`
   const fullUrl = `${baseUrl}${cleanPath}`
+
+  // Debug logging for URL construction
+  console.log('🔍 buildApiUrl DEBUG:', {
+    input_path: path,
+    env_variable: import.meta.env.VITE_API_URL,
+    API_BASE_URL: API_BASE_URL,
+    baseUrl: baseUrl,
+    cleanPath: cleanPath,
+    fullUrl: fullUrl,
+    final_url: fullUrl.replace(/\/$/, ''),
+    isHttps: fullUrl.startsWith('https://'),
+    timestamp: new Date().toISOString()
+  })
+
   // Remove trailing slash but preserve protocol (https://)
-  return fullUrl.replace(/\/$/, '')
+  const finalUrl = fullUrl.replace(/\/$/, '')
+
+  // Force HTTPS if we're in production and accidentally got HTTP
+  if (finalUrl.startsWith('http://') && finalUrl.includes('railway.app')) {
+    const httpsUrl = finalUrl.replace('http://', 'https://')
+    console.log('🚨 FORCED HTTP to HTTPS conversion:', {
+      original: finalUrl,
+      corrected: httpsUrl,
+      timestamp: new Date().toISOString()
+    })
+    return httpsUrl
+  }
+
+  return finalUrl
 }
 
 // Note: Organization ID will be dynamically obtained from authenticated user
