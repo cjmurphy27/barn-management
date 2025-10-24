@@ -259,7 +259,23 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(url, {
+      console.log('🚀 FETCH DEBUG - About to call fetch with URL:', url)
+      console.log('🚀 FETCH DEBUG - URL type:', typeof url)
+      console.log('🚀 FETCH DEBUG - URL startsWith https:', url.startsWith('https://'))
+      console.log('🚀 FETCH DEBUG - URL startsWith http:', url.startsWith('http://'))
+
+      // AGGRESSIVE HTTPS ENFORCEMENT: Convert any HTTP to HTTPS at the last moment
+      let finalUrl = url
+      if (finalUrl.startsWith('http://') && finalUrl.includes('railway.app')) {
+        finalUrl = finalUrl.replace('http://', 'https://')
+        console.log('🚨 LAST-MOMENT HTTP to HTTPS conversion in fetch:', {
+          original: url,
+          corrected: finalUrl,
+          timestamp: new Date().toISOString()
+        })
+      }
+
+      const response = await fetch(finalUrl, {
         ...options,
         headers,
       })
@@ -532,7 +548,23 @@ class ApiClient {
 
     try {
       const url = buildApiUrl(endpoint)
-      const response = await fetch(url, {
+      console.log('🚀 FORMDATA FETCH DEBUG - About to call fetch with URL:', url)
+      console.log('🚀 FORMDATA FETCH DEBUG - URL type:', typeof url)
+      console.log('🚀 FORMDATA FETCH DEBUG - URL startsWith https:', url.startsWith('https://'))
+      console.log('🚀 FORMDATA FETCH DEBUG - URL startsWith http:', url.startsWith('http://'))
+
+      // AGGRESSIVE HTTPS ENFORCEMENT: Convert any HTTP to HTTPS at the last moment
+      let finalUrl = url
+      if (finalUrl.startsWith('http://') && finalUrl.includes('railway.app')) {
+        finalUrl = finalUrl.replace('http://', 'https://')
+        console.log('🚨 LAST-MOMENT HTTP to HTTPS conversion in FormData fetch:', {
+          original: url,
+          corrected: finalUrl,
+          timestamp: new Date().toISOString()
+        })
+      }
+
+      const response = await fetch(finalUrl, {
         method: 'POST',
         headers,
         body: formData
