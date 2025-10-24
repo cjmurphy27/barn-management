@@ -36,8 +36,9 @@ export const buildApiUrl = (path: string): string => {
     timestamp: new Date().toISOString()
   })
 
-  // Remove trailing slash but preserve protocol (https://)
-  const finalUrl = fullUrl.replace(/\/$/, '')
+  // Only remove trailing slash if the original path didn't end with one
+  // This preserves intentional trailing slashes that the backend expects
+  const finalUrl = path.endsWith('/') ? fullUrl : fullUrl.replace(/\/$/, '')
 
   // Force HTTPS if we're in production and accidentally got HTTP
   if (finalUrl.startsWith('http://') && finalUrl.includes('railway.app')) {
