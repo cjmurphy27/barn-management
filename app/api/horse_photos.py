@@ -14,7 +14,7 @@ from app.models.horse import Horse
 from app.config.storage import StorageConfig
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1", tags=["horse-photos"])
+router = APIRouter(tags=["horse-photos"])
 
 # File storage configuration
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
