@@ -13,9 +13,9 @@ console.log('🔧 API Configuration:', {
 export const buildApiUrl = (path: string): string => {
   const baseUrl = API_BASE_URL
   const cleanPath = path.startsWith('/') ? path : `/${path}`
-  // Don't replace double slashes in the protocol (https://)
   const fullUrl = `${baseUrl}${cleanPath}`
-  return fullUrl.replace(/([^:]\/)\/+/g, '$1').replace(/\/$/, '')
+  // Remove trailing slash but preserve protocol (https://)
+  return fullUrl.replace(/\/$/, '')
 }
 
 // Note: Organization ID will be dynamically obtained from authenticated user
