@@ -205,7 +205,7 @@ class ApiClient {
       return this.getMockData<T>(endpoint, options)
     }
 
-    const url = `${this.baseUrl}${endpoint}`
+    const url = buildApiUrl(endpoint)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
