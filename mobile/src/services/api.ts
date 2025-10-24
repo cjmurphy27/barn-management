@@ -2,6 +2,13 @@
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '') // Remove trailing slash
 
+// Debug logging for Railway deployment
+console.log('🔧 API Configuration:', {
+  env: import.meta.env.VITE_API_URL,
+  baseUrl: API_BASE_URL,
+  isDev: import.meta.env.DEV
+})
+
 // Helper function to build API URLs with proper slash handling
 export const buildApiUrl = (path: string): string => {
   const baseUrl = API_BASE_URL
