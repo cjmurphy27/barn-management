@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { horseApi, apiClient } from '../services/api'
+import { horseApi, apiClient, buildApiUrl } from '../services/api'
 
 interface User {
   user_id: string
@@ -42,6 +42,9 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
   const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null)
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [formData, setFormData] = useState<HorseData>({
     name: '',
     breed: '',
@@ -67,6 +70,37 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
       ...prev,
       [field]: value
     }))
+  }
+
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Please select a file smaller than 10MB')
+      return
+    }
+
+    setProfilePhoto(file)
+
+    // Create preview URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setProfilePhotoPreview(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removePhoto = () => {
+    setProfilePhoto(null)
+    setProfilePhotoPreview(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,8 +138,38 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
       const response = await horseApi.create(cleanedData, selectedBarnId)
 
       if (response.success) {
+        const newHorse = response.data as any
+        const horseId = newHorse.id
+
+        // Upload photo if one was selected
+        if (profilePhoto) {
+          setUploadingPhoto(true)
+          try {
+            const formData = new FormData()
+            formData.append('photo', profilePhoto)
+
+            const photoUrl = buildApiUrl(`/api/v1/horses/${horseId}/photo?organization_id=${selectedBarnId}`)
+            const headers: Record<string, string> = accessToken && accessToken !== 'dev_token_placeholder'
+              ? { 'Authorization': `Bearer ${accessToken}` }
+              : {}
+
+            const photoResponse = await fetch(photoUrl, {
+              method: 'POST',
+              headers,
+              body: formData
+            })
+
+            if (!photoResponse.ok) {
+              console.error('Failed to upload photo, but horse was created successfully')
+            }
+          } catch (photoError) {
+            console.error('Failed to upload photo:', photoError)
+          }
+          setUploadingPhoto(false)
+        }
+
         // Navigate to the new horse's profile
-        navigate(`/horses/${(response.data as any).id}`)
+        navigate(`/horses/${horseId}`)
       } else {
         throw new Error(response.error || 'Failed to create horse')
       }
@@ -154,6 +218,55 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
           {/* Basic Information */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+
+            {/* Profile Photo Upload */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
+              <div className="flex items-center space-x-4">
+                {profilePhotoPreview ? (
+                  <div className="relative">
+                    <img
+                      src={profilePhotoPreview}
+                      alt="Horse profile preview"
+                      className="w-20 h-20 rounded-full object-cover border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 text-xs"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center border border-gray-300">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                )}
+                <div>
+                  <label htmlFor="photo-upload" className="cursor-pointer">
+                    <div className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                      {profilePhoto ? 'Change Photo' : 'Upload Photo'}
+                    </div>
+                    <input
+                      id="photo-upload"
+                      name="photo-upload"
+                      type="file"
+                      className="sr-only"
+                      onChange={handlePhotoSelect}
+                      accept="image/*"
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF up to 10MB</p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -365,13 +478,18 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
             </Link>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploadingPhoto}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {saving ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   <span>Creating Horse...</span>
+                </>
+              ) : uploadingPhoto ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Uploading Photo...</span>
                 </>
               ) : (
                 <>
