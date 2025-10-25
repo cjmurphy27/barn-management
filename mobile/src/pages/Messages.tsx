@@ -363,7 +363,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         formData.append('category', newPost.category)
         formData.append('is_pinned', newPost.is_pinned.toString())
         formData.append('tags', newPost.tags)
-        formData.append('organization_id', selectedBarnId)
+        // NOTE: organization_id goes in URL query parameter, not FormData
 
         // Add image to FormData
         const response = await fetch(selectedImage)
@@ -371,7 +371,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         const file = new File([blob], 'post-image.jpg', { type: blob.type })
         formData.append('image', file)
 
-        apiResponse = await apiClient.postFormData('/api/v1/whiteboard/posts/with-image', formData)
+        apiResponse = await apiClient.postFormData(`/api/v1/whiteboard/posts/with-image?organization_id=${selectedBarnId}`, formData)
       } else {
         // Use JSON for posts without images
         const postData = {
