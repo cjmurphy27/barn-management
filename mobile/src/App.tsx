@@ -328,7 +328,7 @@ function App() {
         <Route path="/calendar" element={<Calendar user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/supplies" element={<Supplies user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/menu" element={<Menu user={user} onLogout={logout} />} />
-        <Route path="/add-horse" element={<div className="text-center py-12">Add New Horse (Coming Soon)</div>} />
+        <Route path="/add-horse" element={<AddHorse user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/messages" element={<Messages user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/messages/:postId" element={<Messages user={user} selectedBarnId={selectedBarnId} />} />
         <Route path="/ai" element={<AskAI user={user} selectedBarnId={selectedBarnId} />} />
