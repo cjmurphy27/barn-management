@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { buildApiUrl } from '../services/api'
+import { buildApiUrl, apiClient } from '../services/api'
 
 interface ImageWithAuthProps {
   src: string
@@ -28,9 +28,10 @@ function ImageWithAuth({ src, alt, className, onError, onLoad }: ImageWithAuthPr
 
         console.log('Loading image with Bearer auth:', { src, hasToken: !!accessToken })
 
-        const response = await fetch(src, {
-          headers,
-          credentials: 'include'
+        // Use apiClient to ensure proper HTTPS handling
+        const response = await apiClient.request(src, {
+          method: 'GET',
+          headers
         })
 
         if (!response.ok) {
@@ -228,9 +229,9 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       if (showPinnedOnly) params.append('pinned_only', 'true')
       if (searchTerm) params.append('search', searchTerm)
 
-      const response = await fetch(
+      const response = await apiClient.request(
         buildApiUrl(`/api/v1/whiteboard/posts?${params.toString()}`),
-        { headers }
+        { method: 'GET', headers }
       )
 
       if (response.ok) {
@@ -264,9 +265,9 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       // Try to load the post from each organization until we find it
       for (const org of user.organizations) {
         try {
-          const response = await fetch(
+          const response = await apiClient.request(
             buildApiUrl(`/api/v1/whiteboard/posts/${postId}?organization_id=${org.barn_id}&include_attachments=true`),
-            { headers }
+            { method: 'GET', headers }
           )
 
           if (response.ok) {
@@ -353,9 +354,10 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       let body: FormData | string
 
       if (selectedImage) {
-        // Use multipart form for image upload
+        // Use apiClient.postFormData for image upload
         const response = await fetch(selectedImage)
         const blob = await response.blob()
+        const file = new File([blob], 'post-image.jpg', { type: blob.type })
 
         const formData = new FormData()
         formData.append('title', newPost.title)
@@ -364,47 +366,48 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         formData.append('is_pinned', newPost.is_pinned.toString())
         formData.append('tags', newPost.tags)
         formData.append('organization_id', selectedBarnId)
-        formData.append('image', blob, 'post-image.jpg')
+        formData.append('image', file)
 
         endpoint += '/with-image'
-        body = formData
+        const apiResponse = await apiClient.postFormData(endpoint, formData)
+
+        if (!apiResponse.ok) {
+          throw new Error(`Failed to create post: ${apiResponse.status}`)
+        }
       } else {
-        // JSON for text-only posts with organization_id as query parameter
+        // Use apiClient.request for JSON posts
         endpoint += `?organization_id=${selectedBarnId}`
-        headers['Content-Type'] = 'application/json'
-        body = JSON.stringify({
-          title: newPost.title,
-          content: newPost.content,
-          category: newPost.category,
-          is_pinned: newPost.is_pinned,
-          tags: newPost.tags
+        const apiResponse = await apiClient.request(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newPost.title,
+            content: newPost.content,
+            category: newPost.category,
+            is_pinned: newPost.is_pinned,
+            tags: newPost.tags
+          })
         })
+
+        if (!apiResponse.ok) {
+          throw new Error(`Failed to create post: ${apiResponse.status}`)
+        }
       }
 
-      const apiResponse = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body
+      // Reset form on success
+      setNewPost({
+        title: '',
+        content: '',
+        category: 'general',
+        is_pinned: false,
+        tags: ''
       })
+      setSelectedImage(null)
+      setActiveTab('posts')
 
-      if (apiResponse.ok) {
-        // Reset form
-        setNewPost({
-          title: '',
-          content: '',
-          category: 'general',
-          is_pinned: false,
-          tags: ''
-        })
-        setSelectedImage(null)
-        setActiveTab('posts')
-
-        // Reload posts
-        loadPosts()
-        alert('Post created successfully!')
-      } else {
-        throw new Error('Failed to create post')
-      }
+      // Reload posts
+      loadPosts()
+      alert('Post created successfully!')
     } catch (error) {
       console.error('Failed to create post:', error)
       alert('Failed to create post. Please try again.')
@@ -439,7 +442,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         commentData.parent_comment_id = replyingTo
       }
 
-      const response = await fetch(
+      const response = await apiClient.request(
         buildApiUrl(`/api/v1/whiteboard/posts/${selectedPost.id}/comments?organization_id=${barnId}`),
         {
           method: 'POST',
@@ -488,7 +491,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const response = await fetch(
+      const response = await apiClient.request(
         buildApiUrl(`/api/v1/whiteboard/posts/${post.id}?organization_id=${selectedBarnId}`),
         {
           method: 'DELETE',
