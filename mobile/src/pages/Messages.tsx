@@ -353,24 +353,37 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      // Always use FormData for posts (with or without images)
-      const formData = new FormData()
-      formData.append('title', newPost.title)
-      formData.append('content', newPost.content)
-      formData.append('category', newPost.category)
-      formData.append('is_pinned', newPost.is_pinned.toString())
-      formData.append('tags', newPost.tags)
-      formData.append('organization_id', selectedBarnId)
+      let apiResponse
 
       if (selectedImage) {
-        // Add image to FormData if present
+        // Use FormData with /with-image endpoint for posts with images
+        const formData = new FormData()
+        formData.append('title', newPost.title)
+        formData.append('content', newPost.content)
+        formData.append('category', newPost.category)
+        formData.append('is_pinned', newPost.is_pinned.toString())
+        formData.append('tags', newPost.tags)
+        formData.append('organization_id', selectedBarnId)
+
+        // Add image to FormData
         const response = await fetch(selectedImage)
         const blob = await response.blob()
         const file = new File([blob], 'post-image.jpg', { type: blob.type })
         formData.append('image', file)
-      }
 
-      const apiResponse = await apiClient.postFormData('/api/v1/whiteboard/posts', formData)
+        apiResponse = await apiClient.postFormData('/api/v1/whiteboard/posts/with-image', formData)
+      } else {
+        // Use JSON for posts without images
+        const postData = {
+          title: newPost.title,
+          content: newPost.content,
+          category: newPost.category,
+          is_pinned: newPost.is_pinned,
+          tags: newPost.tags
+        }
+
+        apiResponse = await apiClient.post(`/api/v1/whiteboard/posts?organization_id=${selectedBarnId}`, postData)
+      }
 
       if (!apiResponse.success) {
         throw new Error(apiResponse.error || 'Failed to create post')
