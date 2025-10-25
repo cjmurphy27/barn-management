@@ -350,9 +350,6 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      let endpoint = buildApiUrl(`/api/v1/whiteboard/posts`)
-      let body: FormData | string
-
       // Always use FormData for posts (with or without images)
       const formData = new FormData()
       formData.append('title', newPost.title)
@@ -370,7 +367,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         formData.append('image', file)
       }
 
-      const apiResponse = await apiClient.postFormData(endpoint, formData)
+      const apiResponse = await apiClient.postFormData('/api/v1/whiteboard/posts', formData)
 
       if (!apiResponse.success) {
         throw new Error(apiResponse.error || 'Failed to create post')
