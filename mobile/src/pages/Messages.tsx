@@ -28,10 +28,10 @@ function ImageWithAuth({ src, alt, className, onError, onLoad }: ImageWithAuthPr
 
         console.log('Loading image with Bearer auth:', { src, hasToken: !!accessToken })
 
-        // Use apiClient to ensure proper HTTPS handling
-        const response = await apiClient.request(src, {
-          method: 'GET',
-          headers
+        // Use buildApiUrl and fetch for proper HTTPS handling
+        const response = await fetch(src, {
+          headers,
+          credentials: 'include'
         })
 
         if (!response.ok) {
@@ -229,9 +229,9 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       if (showPinnedOnly) params.append('pinned_only', 'true')
       if (searchTerm) params.append('search', searchTerm)
 
-      const response = await apiClient.request(
+      const response = await fetch(
         buildApiUrl(`/api/v1/whiteboard/posts?${params.toString()}`),
-        { method: 'GET', headers }
+        { headers }
       )
 
       if (response.ok) {
@@ -265,9 +265,9 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       // Try to load the post from each organization until we find it
       for (const org of user.organizations) {
         try {
-          const response = await apiClient.request(
+          const response = await fetch(
             buildApiUrl(`/api/v1/whiteboard/posts/${postId}?organization_id=${org.barn_id}&include_attachments=true`),
-            { method: 'GET', headers }
+            { headers }
           )
 
           if (response.ok) {
@@ -371,26 +371,22 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         endpoint += '/with-image'
         const apiResponse = await apiClient.postFormData(endpoint, formData)
 
-        if (!apiResponse.ok) {
-          throw new Error(`Failed to create post: ${apiResponse.status}`)
+        if (!apiResponse.success) {
+          throw new Error(apiResponse.error || 'Failed to create post')
         }
       } else {
-        // Use apiClient.request for JSON posts
+        // Use apiClient for JSON posts
         endpoint += `?organization_id=${selectedBarnId}`
-        const apiResponse = await apiClient.request(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: newPost.title,
-            content: newPost.content,
-            category: newPost.category,
-            is_pinned: newPost.is_pinned,
-            tags: newPost.tags
-          })
+        const apiResponse = await apiClient.post(endpoint, {
+          title: newPost.title,
+          content: newPost.content,
+          category: newPost.category,
+          is_pinned: newPost.is_pinned,
+          tags: newPost.tags
         })
 
-        if (!apiResponse.ok) {
-          throw new Error(`Failed to create post: ${apiResponse.status}`)
+        if (!apiResponse.success) {
+          throw new Error(apiResponse.error || 'Failed to create post')
         }
       }
 
@@ -442,7 +438,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         commentData.parent_comment_id = replyingTo
       }
 
-      const response = await apiClient.request(
+      const response = await fetch(
         buildApiUrl(`/api/v1/whiteboard/posts/${selectedPost.id}/comments?organization_id=${barnId}`),
         {
           method: 'POST',
@@ -491,7 +487,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const response = await apiClient.request(
+      const response = await fetch(
         buildApiUrl(`/api/v1/whiteboard/posts/${post.id}?organization_id=${selectedBarnId}`),
         {
           method: 'DELETE',
