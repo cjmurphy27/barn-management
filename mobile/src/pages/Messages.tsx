@@ -353,41 +353,27 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       let endpoint = buildApiUrl(`/api/v1/whiteboard/posts`)
       let body: FormData | string
 
+      // Always use FormData for posts (with or without images)
+      const formData = new FormData()
+      formData.append('title', newPost.title)
+      formData.append('content', newPost.content)
+      formData.append('category', newPost.category)
+      formData.append('is_pinned', newPost.is_pinned.toString())
+      formData.append('tags', newPost.tags)
+      formData.append('organization_id', selectedBarnId)
+
       if (selectedImage) {
-        // Use apiClient.postFormData for image upload
+        // Add image to FormData if present
         const response = await fetch(selectedImage)
         const blob = await response.blob()
         const file = new File([blob], 'post-image.jpg', { type: blob.type })
-
-        const formData = new FormData()
-        formData.append('title', newPost.title)
-        formData.append('content', newPost.content)
-        formData.append('category', newPost.category)
-        formData.append('is_pinned', newPost.is_pinned.toString())
-        formData.append('tags', newPost.tags)
-        formData.append('organization_id', selectedBarnId)
         formData.append('image', file)
+      }
 
-        endpoint += '/with-image'
-        const apiResponse = await apiClient.postFormData(endpoint, formData)
+      const apiResponse = await apiClient.postFormData(endpoint, formData)
 
-        if (!apiResponse.success) {
-          throw new Error(apiResponse.error || 'Failed to create post')
-        }
-      } else {
-        // Use apiClient for JSON posts
-        endpoint += `?organization_id=${selectedBarnId}`
-        const apiResponse = await apiClient.post(endpoint, {
-          title: newPost.title,
-          content: newPost.content,
-          category: newPost.category,
-          is_pinned: newPost.is_pinned,
-          tags: newPost.tags
-        })
-
-        if (!apiResponse.success) {
-          throw new Error(apiResponse.error || 'Failed to create post')
-        }
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || 'Failed to create post')
       }
 
       // Reset form on success
