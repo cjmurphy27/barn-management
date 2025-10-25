@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { apiClient } from '../services/api'
 
 interface User {
   user_id: string
@@ -56,12 +57,7 @@ export default function AskAI({ user, selectedBarnId }: AskAIProps) {
         throw new Error('Not authenticated')
       }
 
-      const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-        ? { 'Content-Type': 'application/json' }
-        : {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+      apiClient.setToken(accessToken)
 
       // Build the messages array including conversation history + current message
       const allMessages = [
@@ -80,17 +76,13 @@ export default function AskAI({ user, selectedBarnId }: AskAIProps) {
         include_barn_context: true
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/ai/chat`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody)
-      })
+      const apiResponse = await apiClient.post('/api/v1/ai/chat', requestBody)
 
-      if (!response.ok) {
-        throw new Error('Failed to get AI response')
+      if (!apiResponse.success) {
+        throw new Error(apiResponse.error || 'Failed to get AI response')
       }
 
-      const result = await response.json()
+      const result = apiResponse.data as { response?: string }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
