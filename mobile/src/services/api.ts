@@ -568,7 +568,8 @@ class ApiClient {
       const response = await fetch(finalUrl, {
         method: 'POST',
         headers,
-        body: formData
+        body: formData,
+        credentials: 'include'
       })
 
       const result = await response.json()
