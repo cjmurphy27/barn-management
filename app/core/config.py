@@ -28,8 +28,16 @@ class Settings(BaseSettings):
     
     # API Settings
     API_V1_PREFIX: str = Field(default="/api/v1", description="API version 1 prefix")
-    # Updated CORS to include Railway mobile app URL
-    CORS_ORIGINS: list = Field(default=["http://localhost:8501", "http://localhost:3000", "https://web-production-9e440.up.railway.app"], description="CORS allowed origins")
+    # Updated CORS to include Railway mobile app URL and backend URL
+    CORS_ORIGINS: list = Field(default=[
+        "http://localhost:8501",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8000",
+        "http://localhost:8002",
+        "https://web-production-9e440.up.railway.app",
+        "https://backend-production-67ec.up.railway.app"
+    ], description="CORS allowed origins")
     
     # Authentication Settings (PropelAuth integration)
     PROPELAUTH_URL: Optional[str] = Field(default=None, description="PropelAuth URL")
