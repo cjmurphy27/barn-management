@@ -346,6 +346,9 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) return
 
+      // Set token for API client
+      apiClient.setToken(accessToken)
+
       const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
