@@ -32,6 +32,7 @@ class CompareHorsesRequest(BaseModel):
 class ChatMessage(BaseModel):
     role: str  # 'user' or 'assistant'
     content: str
+    image: Optional[str] = None  # Base64 encoded image data
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
@@ -240,6 +241,27 @@ async def ai_chat(
                 detail="No user message found"
             )
 
+        # Extract image data from the latest message
+        image_data = None
+        image_type = None
+        if latest_message.image:
+            # The image comes as base64 data URL (data:image/jpeg;base64,...)
+            # We need to extract the base64 part and the mime type
+            if latest_message.image.startswith('data:'):
+                try:
+                    # Split the data URL to get mime type and base64 data
+                    header, base64_data = latest_message.image.split(',', 1)
+                    image_type = header.split(':')[1].split(';')[0]  # Extract mime type
+                    image_data = base64_data
+                    logger.info(f"Extracted image data: type={image_type}, size={len(image_data)} chars")
+                except (ValueError, IndexError) as e:
+                    logger.warning(f"Failed to parse image data URL: {e}")
+            else:
+                # If it's already just base64 data, assume JPEG
+                image_data = latest_message.image
+                image_type = "image/jpeg"
+                logger.info(f"Using raw base64 image data: size={len(image_data)} chars")
+
         horse_context = None
         horses_analyzed = []
 
@@ -256,10 +278,13 @@ async def ai_chat(
             horse_context = horse.to_dict()
             horses_analyzed = [horse.name]
 
-            # Use horse-specific AI analysis
+            # Use horse-specific AI analysis with image if provided
             ai_response = ai_service.analyze_horse(
                 horse_context,
-                latest_message.content
+                latest_message.content,
+                image_data,
+                image_type,
+                db
             )
         else:
             # General question handling
@@ -269,10 +294,22 @@ async def ai_chat(
                 horses = db.query(Horse).filter(Horse.is_active == True).limit(10).all()
                 barn_context = [h.to_dict() for h in horses]
 
-            ai_response = ai_service.general_horse_question(
-                latest_message.content,
-                barn_context
-            )
+            # For general questions with images, we need to use a different approach
+            # since general_horse_question doesn't handle images
+            if image_data:
+                # Use analyze_horse with no specific horse context for image analysis
+                ai_response = ai_service.analyze_horse(
+                    {},  # Empty horse context for general image analysis
+                    latest_message.content,
+                    image_data,
+                    image_type,
+                    db
+                )
+            else:
+                ai_response = ai_service.general_horse_question(
+                    latest_message.content,
+                    barn_context
+                )
 
         logger.info(f"Generated AI chat response for {'horse-specific' if request.horse_id else 'general'} question")
 
