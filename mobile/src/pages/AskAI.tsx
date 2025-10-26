@@ -61,13 +61,20 @@ export default function AskAI({ user, selectedBarnId }: AskAIProps) {
 
       // Build the messages array including conversation history + current message
       const allMessages = [
-        ...messages.map(msg => ({
-          role: msg.type === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        })),
+        ...messages.map(msg => {
+          const message: any = {
+            role: msg.type === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          }
+          if (msg.image) {
+            message.image = msg.image
+          }
+          return message
+        }),
         {
           role: 'user',
-          content: userMessage.content
+          content: userMessage.content,
+          ...(userMessage.image && { image: userMessage.image })
         }
       ]
 
