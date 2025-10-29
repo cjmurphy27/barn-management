@@ -382,13 +382,68 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
     setAddingToInventory(prev => ({ ...prev, [index]: false }))
   }
 
-  const adjustStock = (supplyId: number, action: 'add' | 'remove') => {
+  const adjustStock = async (supplyId: number, action: 'add' | 'remove') => {
     const amount = prompt(`How much would you like to ${action}?`)
     if (!amount || isNaN(parseFloat(amount))) return
 
-    // This would typically call an API to adjust stock
-    console.log(`${action} ${amount} to supply ${supplyId}`)
-    alert(`Stock adjustment feature will be implemented in the API`)
+    const quantityChange = action === 'add' ? parseFloat(amount) : -parseFloat(amount)
+    const reason = prompt('Reason for stock adjustment (optional):') || undefined
+    let unitCost: number | undefined
+
+    if (action === 'add') {
+      const costInput = prompt('Unit cost (optional):')
+      if (costInput && !isNaN(parseFloat(costInput))) {
+        unitCost = parseFloat(costInput)
+      }
+    }
+
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) return
+
+      apiClient.setToken(accessToken)
+      const response = await suppliesApi.adjustStock(
+        supplyId.toString(),
+        quantityChange,
+        reason,
+        unitCost,
+        selectedBarnId || undefined
+      )
+
+      if (response.success) {
+        alert(`Stock ${action === 'add' ? 'added' : 'removed'} successfully`)
+        loadSupplies() // Reload the supplies list
+      } else {
+        alert(`Failed to ${action} stock: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error adjusting stock:', error)
+      alert(`Failed to ${action} stock. Please try again.`)
+    }
+  }
+
+  const deleteSupply = async (supplyId: number) => {
+    if (!confirm('Are you sure you want to delete this supply item? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const accessToken = localStorage.getItem('access_token')
+      if (!accessToken) return
+
+      apiClient.setToken(accessToken)
+      const response = await suppliesApi.delete(supplyId.toString(), selectedBarnId || '')
+
+      if (response.success) {
+        alert('Supply item deleted successfully')
+        loadSupplies() // Reload the supplies list
+      } else {
+        alert(`Failed to delete supply: ${response.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting supply:', error)
+      alert('Failed to delete supply. Please try again.')
+    }
   }
 
   const saveSupply = async () => {
@@ -711,6 +766,18 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                             className="text-green-600 hover:text-green-800 text-sm"
                           >
                             Add Stock
+                          </button>
+                          <button
+                            onClick={() => adjustStock(supply.id, 'remove')}
+                            className="text-orange-600 hover:text-orange-800 text-sm"
+                          >
+                            Remove Stock
+                          </button>
+                          <button
+                            onClick={() => deleteSupply(supply.id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Delete
                           </button>
                         </div>
                       </div>

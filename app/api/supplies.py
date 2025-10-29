@@ -343,14 +343,14 @@ async def delete_supply(supply_id: int, db: Session = Depends(get_db)):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Supply with ID {supply_id} not found"
             )
-        
+
         # Soft delete
         db_supply.is_active = False
         db.commit()
-        
+
         logger.info(f"Deleted supply: {db_supply.name}")
         return {"message": f"Supply '{db_supply.name}' deleted successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -359,6 +359,83 @@ async def delete_supply(supply_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete supply"
+        )
+
+@router.post("/{supply_id}/adjust-stock")
+async def adjust_stock(
+    supply_id: int,
+    quantity_change: float = Query(..., description="Amount to add (positive) or remove (negative)"),
+    reason: Optional[str] = Query(None, description="Reason for stock adjustment"),
+    unit_cost: Optional[float] = Query(None, description="Cost per unit if adding stock"),
+    db: Session = Depends(get_db)
+):
+    """Adjust stock levels for a supply item"""
+    try:
+        # Get the supply
+        db_supply = db.query(Supply).filter(Supply.id == supply_id).first()
+        if not db_supply:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Supply with ID {supply_id} not found"
+            )
+
+        # Calculate new stock level
+        new_stock = db_supply.current_stock + quantity_change
+        if new_stock < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot reduce stock below 0. Current: {db_supply.current_stock}, Requested change: {quantity_change}"
+            )
+
+        # Create stock movement record
+        movement_data = {
+            "supply_id": supply_id,
+            "quantity_change": quantity_change,
+            "previous_stock": db_supply.current_stock,
+            "new_stock": new_stock,
+            "reason": reason or ("Stock adjustment" if quantity_change > 0 else "Stock reduction"),
+            "unit_cost": unit_cost,
+            "movement_date": datetime.now().date(),
+            "created_by": "manual_adjustment"  # Could be replaced with actual user ID
+        }
+
+        db_movement = StockMovement(**movement_data)
+        db.add(db_movement)
+
+        # Update supply stock level
+        db_supply.current_stock = new_stock
+
+        # Update cost information if provided (for stock additions)
+        if unit_cost and quantity_change > 0:
+            db_supply.last_cost_per_unit = unit_cost
+
+            # Recalculate average cost (simple moving average)
+            if db_supply.average_cost_per_unit:
+                db_supply.average_cost_per_unit = (db_supply.average_cost_per_unit + unit_cost) / 2
+            else:
+                db_supply.average_cost_per_unit = unit_cost
+
+        db.commit()
+        db.refresh(db_supply)
+
+        logger.info(f"Adjusted stock for {db_supply.name}: {quantity_change} units (new total: {new_stock})")
+
+        return {
+            "message": f"Stock adjusted successfully for {db_supply.name}",
+            "previous_stock": movement_data["previous_stock"],
+            "quantity_change": quantity_change,
+            "new_stock": new_stock,
+            "supply": db_supply.to_dict()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error adjusting stock for supply {supply_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to adjust stock"
         )
 
 # Supplier CRUD Operations

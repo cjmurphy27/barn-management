@@ -640,6 +640,13 @@ export const suppliesApi = {
   create: (data: any, organizationId: string) => apiClient.post(`/api/v1/supplies/`, { ...data, organization_id: organizationId }),
   update: (id: string, data: any, organizationId: string) => apiClient.put(`/api/v1/supplies/${id}`, { ...data, organization_id: organizationId }),
   delete: (id: string, organizationId: string) => apiClient.delete(`/api/v1/supplies/${id}?organization_id=${organizationId}`),
+  adjustStock: (id: string, quantityChange: number, reason?: string, unitCost?: number, organizationId?: string) => {
+    const params = new URLSearchParams({ quantity_change: quantityChange.toString() })
+    if (reason) params.append('reason', reason)
+    if (unitCost) params.append('unit_cost', unitCost.toString())
+    if (organizationId) params.append('organization_id', organizationId)
+    return apiClient.post(`/api/v1/supplies/${id}/adjust-stock?${params.toString()}`)
+  },
   processReceipt: (formData: FormData, organizationId: string) => {
     return apiClient.postFormData(`/api/v1/supplies/transactions/process-receipt`, formData)
   }
