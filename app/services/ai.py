@@ -181,7 +181,7 @@ Be specific and practical in your advice."""
 
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-sonnet-4-5",
                 max_tokens=1200,
                 temperature=0.3,
                 messages=[
@@ -216,7 +216,7 @@ Provide practical, actionable advice based on current best practices in horse ca
 
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-sonnet-4-5",
                 max_tokens=1000,
                 temperature=0.3,
                 messages=[
@@ -264,7 +264,7 @@ Please provide:
 
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-sonnet-4-5",
                 max_tokens=1200,
                 temperature=0.3,
                 messages=[
