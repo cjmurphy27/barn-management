@@ -125,6 +125,8 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
   const [takingPhoto, setTakingPhoto] = useState(false)
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const [showCamera, setShowCamera] = useState(false)
+  const [stagedFile, setStagedFile] = useState<File | null>(null)
+  const [savingDocument, setSavingDocument] = useState(false)
 
   useEffect(() => {
     if (id && user && selectedBarnId) {
@@ -278,11 +280,32 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
     event.target.value = ''
   }
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !horse || !selectedBarnId) return
+    if (!file) return
 
-    setUploadingDocument(true)
+    // Validate file type
+    const allowedTypes = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.tiff', '.gif', '.mp4', '.mov']
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
+    if (!allowedTypes.includes(fileExtension)) {
+      alert('File type not supported. Please select a PDF, DOC, TXT, image, or video file.')
+      return
+    }
+
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('File size must be less than 50MB')
+      return
+    }
+
+    setStagedFile(file)
+    // Don't reset file input here - let it show the selected file
+  }
+
+  const saveDocument = async () => {
+    if (!stagedFile || !horse || !selectedBarnId) return
+
+    setSavingDocument(true)
     try {
       const accessToken = localStorage.getItem('access_token')
       if (!accessToken) {
@@ -290,7 +313,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       }
 
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', stagedFile)
 
       // Add category if selected
       if (documentCategory) {
@@ -319,10 +342,15 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       })
 
       if (response.ok) {
-        // Clear form fields
+        // Clear form fields and staged file
         setDocumentCategory('')
         setDocumentTitle('')
         setDocumentDescription('')
+        setStagedFile(null)
+
+        // Reset file input
+        const fileInput = document.getElementById('file-upload') as HTMLInputElement
+        if (fileInput) fileInput.value = ''
 
         // Reload documents
         loadDocuments(horse.id, selectedBarnId)
@@ -331,10 +359,18 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       }
     } catch (error) {
       console.error('Failed to upload document:', error)
+      alert('Failed to upload document. Please try again.')
     }
-    setUploadingDocument(false)
-    // Reset file input
-    event.target.value = ''
+    setSavingDocument(false)
+  }
+
+  const clearDocumentForm = () => {
+    setDocumentCategory('')
+    setDocumentTitle('')
+    setDocumentDescription('')
+    setStagedFile(null)
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement
+    if (fileInput) fileInput.value = ''
   }
 
   const deleteDocument = async (documentId: string) => {
@@ -438,64 +474,15 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
       canvas.toBlob(async (blob) => {
         if (!blob) return
 
-        setUploadingDocument(true)
+        // Create a File object from the blob
+        const fileName = `camera-capture-${Date.now()}.jpg`
+        const file = new File([blob], fileName, { type: 'image/jpeg' })
 
-        try {
-          const accessToken = localStorage.getItem('access_token')
-          if (!accessToken) {
-            throw new Error('Not authenticated')
-          }
+        // Stage the captured file
+        setStagedFile(file)
 
-          const formData = new FormData()
-          const fileName = `camera-capture-${Date.now()}.jpg`
-          formData.append('file', blob, fileName)
-
-          // Add category if selected
-          if (documentCategory) {
-            formData.append('document_category', documentCategory)
-          }
-
-          // Add title if provided
-          if (documentTitle) {
-            formData.append('title', documentTitle)
-          }
-
-          // Add description if provided
-          if (documentDescription) {
-            formData.append('description', documentDescription)
-          }
-
-          const headers: Record<string, string> = accessToken === 'dev_token_placeholder'
-            ? {}
-            : { 'Authorization': `Bearer ${accessToken}` }
-
-          const uploadUrl = buildApiUrl(`/api/v1/horses/${horse.id}/documents?organization_id=${selectedBarnId}`)
-          const response = await fetch(uploadUrl, {
-            method: 'POST',
-            headers,
-            body: formData
-          })
-
-          if (response.ok) {
-            // Clear form fields
-            setDocumentCategory('')
-            setDocumentTitle('')
-            setDocumentDescription('')
-
-            // Reload documents
-            loadDocuments(horse.id, selectedBarnId)
-
-            // Stop camera
-            stopCamera()
-          } else {
-            throw new Error('Upload failed')
-          }
-        } catch (error) {
-          console.error('Failed to upload photo:', error)
-          alert('Failed to upload photo. Please try again.')
-        }
-
-        setUploadingDocument(false)
+        // Stop camera
+        stopCamera()
       }, 'image/jpeg', 0.8)
 
     } catch (error) {
@@ -974,36 +961,111 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
 
           {activeTab === 'physical' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {horse.height_hands && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Height</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.height_hands} hands</dd>
+              {isEditing ? (
+                <div className="space-y-6">
+                  {/* Editable Physical Info Form */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Height (hands)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.height_hands || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, height_hands: e.target.value || undefined }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="15.2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Weight (lbs)
+                      </label>
+                      <input
+                        type="number"
+                        value={editFormData.weight_lbs || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, weight_lbs: e.target.value ? parseInt(e.target.value) : undefined }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="1000"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Body Condition Score (1-9)
+                      </label>
+                      <select
+                        value={editFormData.body_condition_score || ''}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, body_condition_score: e.target.value ? parseInt(e.target.value) : undefined }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">Select score</option>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(score => (
+                          <option key={score} value={score}>{score}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                )}
-                {horse.weight_lbs && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Weight</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.weight_lbs} lbs</dd>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Markings
+                    </label>
+                    <textarea
+                      value={editFormData.markings || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, markings: e.target.value }))}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Describe any distinctive markings..."
+                    />
                   </div>
-                )}
-                {horse.body_condition_score && (
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Body Condition Score</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{horse.body_condition_score}/9</dd>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Physical Notes
+                    </label>
+                    <textarea
+                      value={editFormData.physical_notes || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, physical_notes: e.target.value }))}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Any physical observations, injuries, or special considerations..."
+                    />
                   </div>
-                )}
-              </div>
-              {horse.markings && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-2">Markings</dt>
-                  <dd className="text-sm text-gray-900">{horse.markings}</dd>
                 </div>
-              )}
-              {horse.physical_notes && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-2">Physical Notes</dt>
-                  <dd className="text-sm text-gray-900">{horse.physical_notes}</dd>
+              ) : (
+                <div className="space-y-6">
+                  {/* Read-only Physical Info Display */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {horse.height_hands && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Height</dt>
+                        <dd className="mt-1 text-sm text-gray-900">{horse.height_hands} hands</dd>
+                      </div>
+                    )}
+                    {horse.weight_lbs && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Weight</dt>
+                        <dd className="mt-1 text-sm text-gray-900">{horse.weight_lbs} lbs</dd>
+                      </div>
+                    )}
+                    {horse.body_condition_score && (
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Body Condition Score</dt>
+                        <dd className="mt-1 text-sm text-gray-900">{horse.body_condition_score}/9</dd>
+                      </div>
+                    )}
+                  </div>
+                  {horse.markings && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">Markings</dt>
+                      <dd className="text-sm text-gray-900">{horse.markings}</dd>
+                    </div>
+                  )}
+                  {horse.physical_notes && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">Physical Notes</dt>
+                      <dd className="text-sm text-gray-900">{horse.physical_notes}</dd>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1011,199 +1073,591 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
 
           {activeTab === 'management' && (
             <div className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">Location & Care</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {horse.current_location && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Current Location</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.current_location}</dd>
+              {isEditing ? (
+                <div className="space-y-6">
+                  {/* Editable Management Info Form */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Location & Care</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Current Location
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.current_location || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, current_location: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Pasture 1, Stall 12, etc."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Stall Number
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.stall_number || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, stall_number: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="12"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Pasture Group
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.pasture_group || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, pasture_group: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Group A, Mares, etc."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Boarding Type
+                        </label>
+                        <select
+                          value={editFormData.boarding_type || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, boarding_type: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                          <option value="">Select boarding type</option>
+                          <option value="Full Board">Full Board</option>
+                          <option value="Partial Board">Partial Board</option>
+                          <option value="Self Care">Self Care</option>
+                          <option value="Training Board">Training Board</option>
+                          <option value="Pasture Board">Pasture Board</option>
+                        </select>
+                      </div>
                     </div>
-                  )}
-                  {horse.stall_number && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Stall Number</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.stall_number}</dd>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Owner & Training</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Owner Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.owner_name || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, owner_name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Owner's full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Owner Contact
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.owner_contact || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, owner_contact: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Phone number or email"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Trainer Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.trainer_name || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, trainer_name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Trainer's full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Trainer Contact
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.trainer_contact || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, trainer_contact: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Phone number or email"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Training Level
+                        </label>
+                        <select
+                          value={editFormData.training_level || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, training_level: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                          <option value="">Select training level</option>
+                          <option value="Green">Green</option>
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                          <option value="Competition">Competition</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Disciplines
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.disciplines || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, disciplines: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Dressage, Jumping, Trail, etc."
+                        />
+                      </div>
                     </div>
-                  )}
-                  {horse.pasture_group && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Pasture Group</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.pasture_group}</dd>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Schedule</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Feeding Schedule
+                        </label>
+                        <textarea
+                          value={editFormData.feeding_schedule || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, feeding_schedule: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="6 AM: 2 lbs grain, 1 flake hay..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Exercise Schedule
+                        </label>
+                        <textarea
+                          value={editFormData.exercise_schedule || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, exercise_schedule: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Monday: Dressage training, Tuesday: Trail ride..."
+                        />
+                      </div>
                     </div>
-                  )}
-                  {horse.boarding_type && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Boarding Type</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.boarding_type}</dd>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">Owner & Training</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {horse.owner_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Owner</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.owner_name}</dd>
-                      {horse.owner_contact && (
-                        <dd className="text-xs text-gray-600">{horse.owner_contact}</dd>
+              ) : (
+                <div className="space-y-6">
+                  {/* Read-only Management Info Display */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Location & Care</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {horse.current_location && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Current Location</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.current_location}</dd>
+                        </div>
+                      )}
+                      {horse.stall_number && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Stall Number</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.stall_number}</dd>
+                        </div>
+                      )}
+                      {horse.pasture_group && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Pasture Group</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.pasture_group}</dd>
+                        </div>
+                      )}
+                      {horse.boarding_type && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Boarding Type</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.boarding_type}</dd>
+                        </div>
                       )}
                     </div>
-                  )}
-                  {horse.trainer_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Trainer</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.trainer_name}</dd>
-                      {horse.trainer_contact && (
-                        <dd className="text-xs text-gray-600">{horse.trainer_contact}</dd>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Owner & Training</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {horse.owner_name && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Owner</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.owner_name}</dd>
+                          {horse.owner_contact && (
+                            <dd className="text-xs text-gray-600">{horse.owner_contact}</dd>
+                          )}
+                        </div>
+                      )}
+                      {horse.trainer_name && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Trainer</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.trainer_name}</dd>
+                          {horse.trainer_contact && (
+                            <dd className="text-xs text-gray-600">{horse.trainer_contact}</dd>
+                          )}
+                        </div>
+                      )}
+                      {horse.training_level && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Training Level</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.training_level}</dd>
+                        </div>
+                      )}
+                      {horse.disciplines && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Disciplines</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.disciplines}</dd>
+                        </div>
                       )}
                     </div>
-                  )}
-                  {horse.training_level && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Training Level</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.training_level}</dd>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Schedule</h3>
+                    <div className="space-y-3">
+                      {horse.feeding_schedule && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Feeding Schedule</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.feeding_schedule}</dd>
+                        </div>
+                      )}
+                      {horse.exercise_schedule && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Exercise Schedule</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.exercise_schedule}</dd>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {horse.disciplines && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Disciplines</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.disciplines}</dd>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">Schedule</h3>
-                <div className="space-y-3">
-                  {horse.feeding_schedule && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Feeding Schedule</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.feeding_schedule}</dd>
-                    </div>
-                  )}
-                  {horse.exercise_schedule && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Exercise Schedule</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.exercise_schedule}</dd>
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {activeTab === 'health' && (
             <div className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">Current Health</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {horse.allergies && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Allergies</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.allergies}</dd>
+              {isEditing ? (
+                <div className="space-y-6">
+                  {/* Editable Health Info Form */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Current Health</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Allergies
+                        </label>
+                        <textarea
+                          value={editFormData.allergies || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, allergies: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="List any known allergies..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Current Medications
+                        </label>
+                        <textarea
+                          value={editFormData.medications || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, medications: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="List current medications and doses..."
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Special Needs
+                        </label>
+                        <textarea
+                          value={editFormData.special_needs || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, special_needs: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Any special care instructions or needs..."
+                        />
+                      </div>
                     </div>
-                  )}
-                  {horse.medications && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Current Medications</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.medications}</dd>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Veterinary Team</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Veterinarian Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.veterinarian_name || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, veterinarian_name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Dr. Smith"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Veterinarian Contact
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.veterinarian_contact || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, veterinarian_contact: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Phone number or email"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Farrier Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.farrier_name || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, farrier_name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Farrier's name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Emergency Contact Name
+                        </label>
+                        <input
+                          type="text"
+                          value={editFormData.emergency_contact_name || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, emergency_contact_name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Emergency contact name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Emergency Contact Phone
+                        </label>
+                        <input
+                          type="tel"
+                          value={editFormData.emergency_contact_phone || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, emergency_contact_phone: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
                     </div>
-                  )}
-                  {horse.special_needs && (
-                    <div className="col-span-2">
-                      <dt className="text-sm font-medium text-gray-500">Special Needs</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.special_needs}</dd>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Recent Care</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Vet Visit
+                        </label>
+                        <input
+                          type="date"
+                          value={editFormData.last_vet_visit ? new Date(editFormData.last_vet_visit).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, last_vet_visit: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Dental
+                        </label>
+                        <input
+                          type="date"
+                          value={editFormData.last_dental ? new Date(editFormData.last_dental).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, last_dental: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Farrier
+                        </label>
+                        <input
+                          type="date"
+                          value={editFormData.last_farrier ? new Date(editFormData.last_farrier).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, last_farrier: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">Veterinary Team</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {horse.veterinarian_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Veterinarian</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.veterinarian_name}</dd>
-                      {horse.veterinarian_contact && (
-                        <dd className="text-xs text-gray-600">{horse.veterinarian_contact}</dd>
+              ) : (
+                <div className="space-y-6">
+                  {/* Read-only Health Info Display */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Current Health</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {horse.allergies && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Allergies</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.allergies}</dd>
+                        </div>
+                      )}
+                      {horse.medications && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Current Medications</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.medications}</dd>
+                        </div>
+                      )}
+                      {horse.special_needs && (
+                        <div className="col-span-2">
+                          <dt className="text-sm font-medium text-gray-500">Special Needs</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.special_needs}</dd>
+                        </div>
                       )}
                     </div>
-                  )}
-                  {horse.farrier_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Farrier</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.farrier_name}</dd>
-                    </div>
-                  )}
-                  {horse.emergency_contact_name && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Emergency Contact</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{horse.emergency_contact_name}</dd>
-                      {horse.emergency_contact_phone && (
-                        <dd className="text-xs text-gray-600">{horse.emergency_contact_phone}</dd>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Veterinary Team</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {horse.veterinarian_name && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Veterinarian</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.veterinarian_name}</dd>
+                          {horse.veterinarian_contact && (
+                            <dd className="text-xs text-gray-600">{horse.veterinarian_contact}</dd>
+                          )}
+                        </div>
+                      )}
+                      {horse.farrier_name && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Farrier</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.farrier_name}</dd>
+                        </div>
+                      )}
+                      {horse.emergency_contact_name && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Emergency Contact</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{horse.emergency_contact_name}</dd>
+                          {horse.emergency_contact_phone && (
+                            <dd className="text-xs text-gray-600">{horse.emergency_contact_phone}</dd>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-900">Recent Care</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {horse.last_vet_visit && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Last Vet Visit</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_vet_visit).toLocaleDateString()}</dd>
+                        </div>
+                      )}
+                      {horse.last_dental && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Last Dental</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_dental).toLocaleDateString()}</dd>
+                        </div>
+                      )}
+                      {horse.last_farrier && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Last Farrier</dt>
+                          <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_farrier).toLocaleDateString()}</dd>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">Recent Care</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {horse.last_vet_visit && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Last Vet Visit</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_vet_visit).toLocaleDateString()}</dd>
-                    </div>
-                  )}
-                  {horse.last_dental && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Last Dental</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_dental).toLocaleDateString()}</dd>
-                    </div>
-                  )}
-                  {horse.last_farrier && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Last Farrier</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_farrier).toLocaleDateString()}</dd>
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {activeTab === 'notes' && (
             <div className="space-y-6">
-              {horse.notes && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-2">General Notes</dt>
-                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.notes}</dd>
+              {isEditing ? (
+                <div className="space-y-6">
+                  {/* Editable Notes Form */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      General Notes
+                    </label>
+                    <textarea
+                      value={editFormData.notes || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      rows={5}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="General notes about the horse..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Special Instructions
+                    </label>
+                    <textarea
+                      value={editFormData.special_instructions || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, special_instructions: e.target.value }))}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Any special instructions for handlers..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Feeding Notes
+                    </label>
+                    <textarea
+                      value={editFormData.feeding_notes || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, feeding_notes: e.target.value }))}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Feeding preferences, restrictions, observations..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Training Notes
+                    </label>
+                    <textarea
+                      value={editFormData.training_notes || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, training_notes: e.target.value }))}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="Training progress, behavioral notes, goals..."
+                    />
+                  </div>
                 </div>
-              )}
-              {horse.special_instructions && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-2">Special Instructions</dt>
-                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.special_instructions}</dd>
-                </div>
-              )}
-              {horse.feeding_notes && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-2">Feeding Notes</dt>
-                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.feeding_notes}</dd>
-                </div>
-              )}
-              {horse.training_notes && (
-                <div>
-                  <dt className="text-sm font-medium text-gray-500 mb-2">Training Notes</dt>
-                  <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.training_notes}</dd>
-                </div>
-              )}
-              {!horse.notes && !horse.special_instructions && !horse.feeding_notes && !horse.training_notes && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No notes available</p>
+              ) : (
+                <div className="space-y-6">
+                  {/* Read-only Notes Display */}
+                  {horse.notes && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">General Notes</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.notes}</dd>
+                    </div>
+                  )}
+                  {horse.special_instructions && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">Special Instructions</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.special_instructions}</dd>
+                    </div>
+                  )}
+                  {horse.feeding_notes && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">Feeding Notes</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.feeding_notes}</dd>
+                    </div>
+                  )}
+                  {horse.training_notes && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">Training Notes</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-wrap">{horse.training_notes}</dd>
+                    </div>
+                  )}
+                  {!horse.notes && !horse.special_instructions && !horse.feeding_notes && !horse.training_notes && (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No notes available</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1232,15 +1686,15 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                       <div className="mt-2">
                         <label htmlFor="file-upload" className="cursor-pointer">
                           <span className="text-sm font-medium text-gray-900">
-                            📁 {uploadingDocument ? 'Uploading...' : 'Browse Files'}
+                            📁 {stagedFile ? stagedFile.name : 'Browse Files'}
                           </span>
                           <input
                             id="file-upload"
                             name="file-upload"
                             type="file"
                             className="sr-only"
-                            onChange={handleFileUpload}
-                            disabled={uploadingDocument}
+                            onChange={handleFileSelection}
+                            disabled={savingDocument}
                             accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.tiff,.gif,.mp4,.mov"
                           />
                         </label>
@@ -1261,7 +1715,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                       <div className="mt-2">
                         <button
                           onClick={startCamera}
-                          disabled={takingPhoto || uploadingDocument}
+                          disabled={takingPhoto || savingDocument}
                           className="text-sm font-medium text-gray-900 hover:text-primary-600 disabled:opacity-50"
                         >
                           📸 {takingPhoto ? 'Opening Camera...' : 'Take Photo'}
@@ -1316,6 +1770,41 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
+
+                {/* Action Buttons */}
+                {stagedFile && (
+                  <div className="flex space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={saveDocument}
+                      disabled={savingDocument}
+                      className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {savingDocument ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                          </svg>
+                          <span>Save Document</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={clearDocumentForm}
+                      disabled={savingDocument}
+                      className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span>Clear</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Camera Modal */}
