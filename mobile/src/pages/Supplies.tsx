@@ -762,18 +762,6 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                             Edit
                           </button>
                           <button
-                            onClick={() => adjustStock(supply.id, 'add')}
-                            className="text-green-600 hover:text-green-800 text-sm"
-                          >
-                            Add Stock
-                          </button>
-                          <button
-                            onClick={() => adjustStock(supply.id, 'remove')}
-                            className="text-orange-600 hover:text-orange-800 text-sm"
-                          >
-                            Remove Stock
-                          </button>
-                          <button
                             onClick={() => deleteSupply(supply.id)}
                             className="text-red-600 hover:text-red-800 text-sm"
                           >

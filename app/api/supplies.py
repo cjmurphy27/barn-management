@@ -334,10 +334,17 @@ async def update_supply(
         )
 
 @router.delete("/{supply_id}")
-async def delete_supply(supply_id: int, db: Session = Depends(get_db)):
+async def delete_supply(
+    supply_id: int,
+    organization_id: str = Query(..., description="Organization ID"),
+    db: Session = Depends(get_db)
+):
     """Delete a supply (soft delete by marking as inactive)"""
     try:
-        db_supply = db.query(Supply).filter(Supply.id == supply_id).first()
+        db_supply = db.query(Supply).filter(
+            Supply.id == supply_id,
+            Supply.organization_id == organization_id
+        ).first()
         if not db_supply:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
