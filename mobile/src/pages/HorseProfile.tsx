@@ -807,8 +807,8 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
 
       {/* Tabs */}
       <div className="bg-white rounded-lg border border-gray-200">
-        <div className="border-b border-gray-200 overflow-x-auto">
-          <nav className="-mb-px flex space-x-8 px-6 min-w-max">
+        <div className="border-b border-gray-200 overflow-x-auto sticky top-0 z-10 bg-white">
+          <nav className="-mb-px flex space-x-8 px-6 min-w-max scroll-smooth snap-x snap-mandatory">
             {[
               { id: 'basic', name: 'Basic Info' },
               { id: 'physical', name: 'Physical' },
@@ -824,7 +824,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex-shrink-0`}
+                } whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex-shrink-0 snap-start`}
               >
                 {tab.name}
               </button>
@@ -832,7 +832,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 min-h-[600px] md:min-h-[400px]">
           {activeTab === 'basic' && (
             <div className="space-y-6">
               {isEditing ? (
