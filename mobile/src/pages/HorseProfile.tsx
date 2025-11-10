@@ -214,12 +214,12 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
         ? {}
         : { 'Authorization': `Bearer ${accessToken}` }
 
-      const documentsUrl = buildApiUrl(`/api/v1/horses/${horseId}/documents?organization_id=${organizationId}`)
+      const documentsUrl = buildApiUrl(`/api/v1/horses/${horseId}/documents`)
       const response = await fetch(documentsUrl, { headers })
 
       if (response.ok) {
         const documentsData = await response.json()
-        setDocuments(documentsData.documents || [])
+        setDocuments(documentsData || [])
       }
     } catch (error) {
       console.error('Failed to load documents:', error)
