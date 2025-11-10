@@ -29,6 +29,7 @@ interface Supply {
   storage_location?: string
   is_low_stock: boolean
   is_out_of_stock: boolean
+  updated_at?: string
 }
 
 interface DashboardData {
