@@ -183,6 +183,33 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
     }).format(amount)
   }
 
+  const formatLastUpdated = (dateString: string | undefined) => {
+    if (!dateString) return 'Unknown'
+
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMs = now.getTime() - date.getTime()
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+
+    if (diffInMinutes < 1) {
+      return 'Just now'
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`
+    } else if (diffInDays < 30) {
+      return `${diffInDays}d ago`
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      })
+    }
+  }
+
   const getCategoryLabel = (category: string) => {
     const cat = categories.find(c => c.value === category)
     return cat ? cat.label : category
@@ -737,6 +764,9 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                                 Cost: {formatCurrency(supply.last_cost_per_unit)} per {supply.unit_type}
                               </div>
                             )}
+                            <div className="text-xs text-gray-500">
+                              🕐 Updated {formatLastUpdated(supply.updated_at)}
+                            </div>
                           </div>
                         </div>
                         <div className="flex flex-col space-y-2">
