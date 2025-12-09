@@ -144,6 +144,8 @@ app.include_router(horse_photos_router, prefix="/api/v1")
 async def startup_event():
     """Initialize database on startup"""
     try:
+        # Checking that database tables exist, create if not
+        logger.info("Initializing database...")
         # Create tables
         Base.metadata.create_all(bind=db_manager.engine)
         logger.info("Database tables created successfully")

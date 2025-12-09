@@ -1,0 +1,29 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv
+.env
+.venv
+
+# Git
+.git
+
+# Node
+node_modules
+
+# Logs
+*.log
+
+# Editor
+.vscode
+.idea
+.DS_Store
+
+# Build artifacts
+dist
+build
+
