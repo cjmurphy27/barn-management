@@ -9,3 +9,8 @@ python-multipart==0.0.6
 httpx==0.28.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+
+# PropelAuth SDKs (needed by app/core/auth.py)
+propelauth-py==4.2.8
+propelauth-fastapi==4.2.8
+anthropic
