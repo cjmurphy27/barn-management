@@ -1,4 +1,3 @@
-
 services:
   # PostgreSQL Database
   db:
@@ -6,8 +5,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: barnlady
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: barnlady
+      POSTGRES_PASSWORD: barnlady
     ports:
       - "5432:5432"
     volumes:
@@ -22,13 +21,13 @@ services:
   # FastAPI Backend
   api:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/barnlady
+      - DATABASE_URL=postgresql://barnlady:barnlady@db:5432/barnlady
       - PROPELAUTH_URL=${PROPELAUTH_URL}
       - PROPELAUTH_API_KEY=${PROPELAUTH_API_KEY}
       - PROPELAUTH_VERIFIER_KEY=${PROPELAUTH_VERIFIER_KEY}
@@ -38,40 +37,38 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - ./app:/app/app:ro
+      # Mount project folder into the container so edits are reflected immediately (read-write)
+      - ./app:/app:rw
       - ./storage:/app/storage
+    # Run as root in development so mounted files from host are accessible; remove/change for prod images
+    user: root
+    # Run uvicorn with --reload so code changes are picked up
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Streamlit Frontend
+  # TypeScript/React Frontend
   frontend:
     build:
-      context: ./frontend
+      context: ./mobile
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "3000:80"
     environment:
-      - API_BASE_URL=http://api:8000
-      - PROPELAUTH_URL=${PROPELAUTH_URL}
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_PROPELAUTH_URL=${PROPELAUTH_URL}
     depends_on:
       api:
         condition: service_healthy
-    volumes:
-      - ./frontend:/app:ro
-
-  # Redis (for future caching/sessions)
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
