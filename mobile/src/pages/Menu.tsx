@@ -20,7 +20,7 @@ export default function Menu({ user, onLogout }: MenuProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
           More Options
         </h1>
         <p className="text-gray-600">
@@ -28,6 +28,7 @@ export default function Menu({ user, onLogout }: MenuProps) {
         </p>
       </div>
 
+      <div className="space-y-6 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           🐎 Horse Management
@@ -117,6 +118,7 @@ export default function Menu({ user, onLogout }: MenuProps) {
             </svg>
           </button>
         </div>
+      </div>
       </div>
     </div>
   )

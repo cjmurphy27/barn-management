@@ -198,7 +198,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
       </div>
 
       {/* Form */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 lg:p-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
             <div className="flex">
@@ -217,7 +217,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+            <h3 className="text-lg md:text-xl font-medium text-gray-900 mb-4">Basic Information</h3>
 
             {/* Profile Photo Upload */}
             <div className="mb-6">
@@ -228,7 +228,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
                     <img
                       src={profilePhotoPreview}
                       alt="Horse profile preview"
-                      className="w-20 h-20 rounded-full object-cover border border-gray-300"
+                      className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border border-gray-300"
                     />
                     <button
                       type="button"
@@ -241,7 +241,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center border border-gray-300">
+                  <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center border border-gray-300">
                     <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -348,7 +348,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
 
           {/* Registration */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Registration & Identification</h3>
+            <h3 className="text-lg md:text-xl font-medium text-gray-900 mb-4">Registration & Identification</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
@@ -383,7 +383,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
 
           {/* Location & Management */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Location & Management</h3>
+            <h3 className="text-lg md:text-xl font-medium text-gray-900 mb-4">Location & Management</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Current Location</label>
@@ -410,7 +410,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
 
           {/* Owner & Trainer */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Owner & Trainer</h3>
+            <h3 className="text-lg md:text-xl font-medium text-gray-900 mb-4">Owner & Trainer</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
@@ -455,7 +455,7 @@ export default function AddHorse({ user, selectedBarnId }: AddHorseProps) {
 
           {/* Notes */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Notes</h3>
+            <h3 className="text-lg md:text-xl font-medium text-gray-900 mb-4">Notes</h3>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">General Notes</label>
               <textarea

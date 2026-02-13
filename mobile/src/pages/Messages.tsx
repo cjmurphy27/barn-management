@@ -549,7 +549,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
   // Post detail view
   if (selectedPost) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-3xl mx-auto lg:max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
@@ -701,7 +701,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Message Board</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Message Board</h1>
         <p className="text-gray-600">Share updates and discuss with your barn community</p>
       </div>
 
@@ -733,8 +733,8 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
           {activeTab === 'posts' && (
             <div className="space-y-4">
               {/* Search and Filters */}
-              <div className="space-y-3">
-                <div className="flex space-x-3">
+              <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex space-x-3 flex-1">
                   <input
                     type="text"
                     placeholder="Search posts..."
@@ -797,7 +797,7 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                   {posts.map((post) => (
                     <Link
                       key={post.id}
@@ -860,35 +860,37 @@ export default function Messages({ user, selectedBarnId }: MessagesProps) {
           {activeTab === 'create' && (
             <div className="space-y-4">
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={newPost.title}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="Enter post title"
-                    maxLength={200}
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={newPost.title}
+                      onChange={(e) => setNewPost(prev => ({ ...prev, title: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="Enter post title"
+                      maxLength={200}
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category *
-                  </label>
-                  <select
-                    value={newPost.category}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.emoji} {cat.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={newPost.category}
+                      onChange={(e) => setNewPost(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.emoji} {cat.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>

@@ -295,7 +295,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
       {/* Upcoming Events Section */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">📅 Upcoming Events</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">📅 Upcoming Events</h2>
           <button
             onClick={() => setShowUpcomingEvents(!showUpcomingEvents)}
             className="text-primary-600 text-sm font-medium"
@@ -351,7 +351,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
       {/* Latest Messages Section */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">💬 Latest Messages</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">💬 Latest Messages</h2>
           <button
             onClick={() => setShowLatestMessages(!showLatestMessages)}
             className="text-primary-600 text-sm font-medium"
@@ -414,7 +414,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
       </div>
 
       {/* Horse Statistics */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card text-center">
           <div className="text-2xl font-bold text-primary-600">{totalHorses}</div>
           <div className="text-sm text-gray-600">Total Horses</div>
@@ -436,7 +436,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
       {/* Search Bar */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">🐴 Horse Directory</h2>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">🐴 Horse Directory</h2>
           <Link to="/add-horse" className="text-primary-600 text-sm font-medium">
             Add Horse +
           </Link>
@@ -491,7 +491,7 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
           )}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
           {displayedHorses.map((horse) => (
             <div key={horse.id} className="card">
               <div className="flex items-start space-x-4">
@@ -501,10 +501,10 @@ export default function Dashboard({ user, selectedBarnId }: DashboardProps) {
                     <img
                       src={horsePhotos[horse.id]}
                       alt={horse.name}
-                      className="w-16 h-16 rounded-lg object-cover"
+                      className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <div className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-gray-200 rounded-lg flex items-center justify-center">
                       <span className="text-gray-400 text-2xl">🐴</span>
                     </div>
                   )}

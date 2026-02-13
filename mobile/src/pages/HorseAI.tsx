@@ -225,12 +225,12 @@ export default function HorseAI({ user, selectedBarnId }: HorseAIProps) {
   }
 
   return (
-    <div className="flex flex-col h-full max-h-screen">
+    <div className="flex flex-col h-full max-h-screen md:max-w-3xl md:mx-auto lg:max-w-4xl">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
               <span className="text-white font-semibold text-lg">🤖</span>
             </div>
             <div>
@@ -312,7 +312,7 @@ export default function HorseAI({ user, selectedBarnId }: HorseAIProps) {
 
       {/* Quick Actions */}
       <div className="bg-gray-50 border-t border-gray-200 px-4 py-2">
-        <div className="flex space-x-2 overflow-x-auto">
+        <div className="flex space-x-2 overflow-x-auto md:flex-wrap md:overflow-x-visible md:gap-2">
           {[
             `What should I know about ${horse.name}?`,
             `Analyze ${horse.name}'s health status`,

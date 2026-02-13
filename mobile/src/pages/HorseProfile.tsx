@@ -714,23 +714,23 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
           {/* Horse Photo */}
           <div className="flex-shrink-0 relative">
             {photoLoading ? (
-              <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+              <div className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bg-gray-100 rounded-lg flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
               </div>
             ) : photoData ? (
               <img
                 src={photoData}
                 alt={horse.name}
-                className="w-24 h-24 rounded-lg object-cover"
+                className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-lg object-cover"
               />
             ) : horse.photo_url ? (
               <img
                 src={horse.photo_url}
                 alt={horse.name}
-                className="w-24 h-24 rounded-lg object-cover"
+                className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-lg object-cover"
               />
             ) : (
-              <div className="w-24 h-24 bg-primary-100 rounded-lg flex items-center justify-center">
+              <div className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 bg-primary-100 rounded-lg flex items-center justify-center">
                 <span className="text-primary-600 font-semibold text-2xl">
                   {getGenderIcon(horse.gender)}
                 </span>
@@ -768,7 +768,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{horse.name}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{horse.name}</h1>
                 {horse.barn_name && (
                   <p className="text-lg text-gray-600 font-medium">{horse.barn_name}</p>
                 )}
@@ -832,7 +832,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
           </nav>
         </div>
 
-        <div className="p-6 min-h-[600px] md:min-h-[400px]">
+        <div className="p-6 lg:p-8 min-h-[600px] md:min-h-[400px]">
           {activeTab === 'basic' && (
             <div className="space-y-6">
               {isEditing ? (

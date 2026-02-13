@@ -235,7 +235,7 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
   }
 
   const renderUpcomingTab = () => (
-    <div className="space-y-4">
+    <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
@@ -324,7 +324,7 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
           {getCalendarDays().map((day, index) => (
             <div
               key={index}
-              className={`min-h-[60px] p-1 border-t border-gray-200 ${
+              className={`min-h-[60px] md:min-h-[80px] lg:min-h-[100px] p-1 md:p-2 border-t border-gray-200 ${
                 !day.isCurrentMonth ? 'bg-gray-50' : ''
               } ${day.isToday ? 'bg-blue-50' : ''}`}
             >
@@ -343,7 +343,8 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
                       setShowEventModal(true)
                     }}
                   >
-                    {EVENT_TYPES[event.event_type].emoji} {event.title.length > 8 ? event.title.substring(0, 8) + '...' : event.title}
+                    <span className="md:hidden">{EVENT_TYPES[event.event_type].emoji} {event.title.length > 8 ? event.title.substring(0, 8) + '...' : event.title}</span>
+                    <span className="hidden md:inline">{EVENT_TYPES[event.event_type].emoji} {event.title}</span>
                   </div>
                 ))}
                 {day.events.length > 2 && (
@@ -406,60 +407,64 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date
-          </label>
-          <input
-            type="date"
-            value={formData.scheduled_date}
-            onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date
+            </label>
+            <input
+              type="date"
+              value={formData.scheduled_date}
+              onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Time (Optional)
+            </label>
+            <input
+              type="time"
+              value={formData.scheduled_time}
+              onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Time (Optional)
-          </label>
-          <input
-            type="time"
-            value={formData.scheduled_time}
-            onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Duration (minutes)
+            </label>
+            <input
+              type="number"
+              value={formData.duration_minutes}
+              onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              min="1"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Duration (minutes)
-          </label>
-          <input
-            type="number"
-            value={formData.duration_minutes}
-            onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            min="1"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Horse (Optional)
-          </label>
-          <select
-            value={formData.horse_id}
-            onChange={(e) => setFormData({ ...formData, horse_id: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">Select a horse...</option>
-            {horses.map((horse) => (
-              <option key={horse.horse_id} value={horse.horse_id}>
-                🐴 {horse.horse_name}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Horse (Optional)
+            </label>
+            <select
+              value={formData.horse_id}
+              onChange={(e) => setFormData({ ...formData, horse_id: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Select a horse...</option>
+              {horses.map((horse) => (
+                <option key={horse.horse_id} value={horse.horse_id}>
+                  🐴 {horse.horse_name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex space-x-3 pt-4">
@@ -485,7 +490,7 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4">
-        <h1 className="text-xl font-bold text-gray-900">Calendar</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Calendar</h1>
         <p className="text-sm text-gray-600">Schedule and track events for your horses</p>
       </div>
 
@@ -535,7 +540,7 @@ export default function Calendar({ user, selectedBarnId }: CalendarProps) {
       {/* Event Detail Modal */}
       {showEventModal && selectedEvent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="bg-white rounded-lg max-w-md md:max-w-lg w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Event Details</h3>
               <button

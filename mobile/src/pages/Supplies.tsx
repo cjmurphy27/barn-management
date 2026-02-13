@@ -508,7 +508,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Supplies & Inventory</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Supplies & Inventory</h1>
         <p className="text-gray-600">Manage your barn supplies and inventory</p>
       </div>
 
@@ -644,8 +644,8 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
           {activeTab === 'inventory' && (
             <div className="space-y-4">
               {/* Search and Filters */}
-              <div className="space-y-3">
-                <div className="flex space-x-3">
+              <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex space-x-3 flex-1">
                   <input
                     type="text"
                     placeholder="Search supplies..."
@@ -723,7 +723,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
                   {supplies.map((supply) => (
                     <div key={supply.id} className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center justify-between">
@@ -981,7 +981,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       {/* Add/Edit Supply Modal */}
       {showAddSupplyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[85dvh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-md md:max-w-lg w-full max-h-[85dvh] overflow-y-auto">
             <div className="p-6 pb-8">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium text-gray-900">

@@ -213,7 +213,7 @@ export default function HorsesList({ user, selectedBarnId }: HorsesListProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">My Horses</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Horses</h1>
         <Link
           to="/horses/new"
           className="bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
@@ -282,7 +282,7 @@ export default function HorsesList({ user, selectedBarnId }: HorsesListProps) {
           )}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 xl:grid-cols-3">
           {filteredHorses.map((horse) => (
             <Link
               key={horse.id}
@@ -297,10 +297,10 @@ export default function HorsesList({ user, selectedBarnId }: HorsesListProps) {
                         <img
                           src={horsePhotos[horse.id]}
                           alt={horse.name}
-                          className="w-10 h-10 rounded-full object-cover"
+                          className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 md:w-12 md:h-12 bg-primary-100 rounded-full flex items-center justify-center">
                           <span className="text-primary-600 font-semibold text-lg">
                             {getGenderIcon(horse.gender)}
                           </span>

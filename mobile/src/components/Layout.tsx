@@ -43,7 +43,7 @@ export default function Layout({ children, user, onLogout, selectedBarnId, onBar
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-sm safe-area-top">
-        <div className="px-4 py-4">
+        <div className="px-4 py-4 md:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="flex items-center bg-white bg-opacity-20 rounded-lg px-4 py-3">
@@ -91,85 +91,90 @@ export default function Layout({ children, user, onLogout, selectedBarnId, onBar
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 px-4 py-6">
-        {children}
-      </main>
+      {/* Main Content + Nav wrapper */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0">
+        {/* Main Content */}
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 lg:px-12 md:overflow-y-auto">
+          <div className="max-w-screen-xl mx-auto">
+            {children}
+          </div>
+        </main>
 
-      {/* Bottom Navigation */}
-      <nav className="bg-white border-t border-gray-200 safe-area-bottom">
-        <div className="grid grid-cols-5 gap-1 px-2 py-2">
-          <a
-            href="/"
-            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-              isActive('/')
-                ? 'bg-primary-50 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-            </svg>
-            <span className="text-xs font-medium">Home</span>
-          </a>
+        {/* Bottom Navigation / Sidebar */}
+        <nav className="bg-white border-t border-gray-200 safe-area-bottom md:border-t-0 md:border-r md:w-56 md:flex-shrink-0 md:order-first md:safe-area-bottom-0 md:overflow-y-auto">
+          <div className="grid grid-cols-5 gap-1 px-2 py-2 md:grid-cols-1 md:gap-0 md:px-0 md:py-4">
+            <a
+              href="/"
+              className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors md:flex-row md:px-4 md:py-3 md:space-x-3 md:rounded-none ${
+                isActive('/')
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-6 h-6 mb-1 md:mb-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+              </svg>
+              <span className="text-xs font-medium md:text-sm">Home</span>
+            </a>
 
-          <a
-            href="/horses"
-            className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors ${
-              isActive('/horses')
-                ? 'bg-primary-50 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4zM4 9a2 2 0 100 4h12a2 2 0 100-4H4zM4 15a2 2 0 100 4h12a2 2 0 100-4H4z"/>
-            </svg>
-            <span className="text-xs font-medium">Horses</span>
-          </a>
+            <a
+              href="/horses"
+              className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors md:flex-row md:px-4 md:py-3 md:space-x-3 md:rounded-none ${
+                isActive('/horses')
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-5 h-5 mb-1 md:mb-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4zM4 9a2 2 0 100 4h12a2 2 0 100-4H4zM4 15a2 2 0 100 4h12a2 2 0 100-4H4z"/>
+              </svg>
+              <span className="text-xs font-medium md:text-sm">Horses</span>
+            </a>
 
-          <a
-            href="/calendar"
-            className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors ${
-              isActive('/calendar')
-                ? 'bg-primary-50 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-            </svg>
-            <span className="text-xs font-medium">Calendar</span>
-          </a>
+            <a
+              href="/calendar"
+              className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors md:flex-row md:px-4 md:py-3 md:space-x-3 md:rounded-none ${
+                isActive('/calendar')
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-5 h-5 mb-1 md:mb-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs font-medium md:text-sm">Calendar</span>
+            </a>
 
-          <a
-            href="/supplies"
-            className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors ${
-              isActive('/supplies')
-                ? 'bg-primary-50 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-            </svg>
-            <span className="text-xs font-medium">Supplies</span>
-          </a>
+            <a
+              href="/supplies"
+              className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors md:flex-row md:px-4 md:py-3 md:space-x-3 md:rounded-none ${
+                isActive('/supplies')
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-5 h-5 mb-1 md:mb-0" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+              </svg>
+              <span className="text-xs font-medium md:text-sm">Supplies</span>
+            </a>
 
-          <a
-            href="/menu"
-            className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors ${
-              isActive('/menu')
-                ? 'bg-primary-50 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-            <svg className="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-            </svg>
-            <span className="text-xs font-medium">More</span>
-          </a>
-        </div>
-      </nav>
+            <a
+              href="/menu"
+              className={`flex flex-col items-center py-2 px-1 rounded-lg transition-colors md:flex-row md:px-4 md:py-3 md:space-x-3 md:rounded-none ${
+                isActive('/menu')
+                  ? 'bg-primary-50 text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-5 h-5 mb-1 md:mb-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs font-medium md:text-sm">More</span>
+            </a>
+          </div>
+        </nav>
+      </div>
     </div>
   )
 }

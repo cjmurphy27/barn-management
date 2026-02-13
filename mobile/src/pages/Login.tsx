@@ -54,9 +54,9 @@ export default function Login({ onLogin }: LoginProps) {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <div className="inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-8 py-6 mb-4">
+          <div className="inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-8 py-6 md:px-10 md:py-8 mb-4">
             <div className="flex flex-col">
-              <span className="text-white font-black text-3xl leading-tight tracking-tight">STABLE</span>
+              <span className="text-white font-black text-3xl md:text-4xl leading-tight tracking-tight">STABLE</span>
               <span className="text-blue-100 font-bold text-2xl leading-tight tracking-wide">GENIUS</span>
             </div>
           </div>
