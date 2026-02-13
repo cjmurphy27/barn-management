@@ -56,7 +56,7 @@ services:
   frontend:
     build:
       context: ./mobile
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.local
       args:
         - VITE_API_URL=http://localhost:8000
         - VITE_AUTH_URL=${PROPELAUTH_URL}
