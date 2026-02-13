@@ -550,11 +550,10 @@ async def process_receipt(
         )
         
         if not result.get("success", False):
-            return {
-                "success": False,
-                "error": result.get("error", "Processing failed"),
-                "manual_review_required": True
-            }
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Processing failed")
+            )
         
         # Save receipt image
         receipt_path = await save_receipt_image(receipt_image, image_data)

@@ -111,7 +111,7 @@ class ReceiptProcessor:
             
             # Call Claude API
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-5",
                 max_tokens=2000,
                 temperature=0.1,  # Low temperature for accuracy
                 messages=[
