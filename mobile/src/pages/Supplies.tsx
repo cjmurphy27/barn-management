@@ -64,6 +64,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
   const [processingReceipt, setProcessingReceipt] = useState(false)
   const [receiptResults, setReceiptResults] = useState<any>(null)
   const [addingToInventory, setAddingToInventory] = useState<{ [key: number]: boolean }>({})
+  const [editedNames, setEditedNames] = useState<Record<number, string>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -232,12 +233,14 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       const result = await suppliesApi.processReceipt(formData, selectedBarnId)
 
       if (result.success) {
+        setEditedNames({})
         setReceiptResults(result.data)
       } else {
         throw new Error('Failed to process receipt')
       }
     } catch (error) {
       console.error('Failed to process receipt:', error)
+      alert(error instanceof Error ? error.message : 'Failed to process receipt. Please try again.')
     }
     setProcessingReceipt(false)
   }
@@ -248,6 +251,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     setAddingToInventory({})
+    setEditedNames({})
   }
 
   const addReceiptItemToInventory = async (item: any, index: number) => {
@@ -257,17 +261,19 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       return
     }
 
+    const effectiveName = editedNames[index] || item.description
+
     // Skip non-inventory items like delivery charges, taxes, fees, etc.
     const nonInventoryKeywords = ['delivery', 'shipping', 'tax', 'fee', 'charge', 'discount', 'tip', 'gratuity', 'service']
-    const itemName = item.description.toLowerCase()
+    const itemName = effectiveName.toLowerCase()
     const isNonInventoryItem = nonInventoryKeywords.some(keyword => itemName.includes(keyword))
 
     if (isNonInventoryItem) {
-      alert(`"${item.description}" appears to be a service charge rather than an inventory item. Skipping inventory addition.`)
+      alert(`"${effectiveName}" appears to be a service charge rather than an inventory item. Skipping inventory addition.`)
       return
     }
 
-    console.log('Starting addReceiptItemToInventory with:', { item, index, selectedBarnId })
+    console.log('Starting addReceiptItemToInventory with:', { item, index, selectedBarnId, effectiveName })
     setAddingToInventory(prev => ({ ...prev, [index]: true }))
     try {
       const accessToken = localStorage.getItem('access_token')
@@ -281,7 +287,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       apiClient.setToken(accessToken)
 
       const supplyData = {
-        name: item.description,
+        name: effectiveName,
         description: '',
         category: item.category,
         brand: '',
@@ -303,13 +309,13 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       if (existingSuppliesResponse.success && existingSuppliesResponse.data && Array.isArray(existingSuppliesResponse.data)) {
         console.log('API response data length:', existingSuppliesResponse.data.length)
         console.log('Searching for match:', {
-          itemName: item.description,
+          itemName: effectiveName,
           itemCategory: item.category,
           existingSupplies: existingSuppliesResponse.data.map((s: any) => ({ name: s.name, category: s.category }))
         })
 
         const existingSupply = existingSuppliesResponse.data.find((supply: any) => {
-          const nameMatch = supply.name.toLowerCase() === item.description.toLowerCase()
+          const nameMatch = supply.name.toLowerCase() === effectiveName.toLowerCase()
           const categoryMatch = supply.category === item.category || supply.category.toLowerCase() === item.category.toLowerCase()
           console.log('Checking supply:', { name: supply.name, category: supply.category, nameMatch, categoryMatch })
           return nameMatch && categoryMatch
@@ -345,7 +351,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
             if (activeTab === 'inventory') {
               loadSupplies()
             }
-            alert(`Updated ${item.description} stock! Added ${quantityToAdd} units (new total: ${Math.max(0, newStock)})`)
+            alert(`Updated ${effectiveName} stock! Added ${quantityToAdd} units (new total: ${Math.max(0, newStock)})`)
           } else {
             throw new Error(updateResponse.error || 'Failed to update existing item stock')
           }
@@ -372,7 +378,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
           loadSupplies()
         }
         // Mark this item as added (you could remove it from the UI)
-        alert(`${item.description} added to inventory successfully!`)
+        alert(`${effectiveName} added to inventory successfully!`)
       } else {
         console.error('API error response:', response)
         const errorMessage = Array.isArray(response.error)
@@ -911,17 +917,22 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                             {receiptResults.line_items.map((item: any, index: number) => {
                               // Check if this is a non-inventory item
                               const nonInventoryKeywords = ['delivery', 'shipping', 'tax', 'fee', 'charge', 'discount', 'tip', 'gratuity', 'service']
-                              const itemName = item.description.toLowerCase()
-                              const isNonInventoryItem = nonInventoryKeywords.some(keyword => itemName.includes(keyword))
+                              const displayName = editedNames[index] ?? item.description
+                              const isNonInventoryItem = nonInventoryKeywords.some(keyword => displayName.toLowerCase().includes(keyword))
 
                               return (
                                 <div key={index} className={`rounded p-3 border ${isNonInventoryItem ? 'bg-gray-100 border-gray-300' : 'bg-white'}`}>
                                   <div className="flex justify-between items-start">
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2">
-                                        <p className="font-medium">{item.description}</p>
+                                        <input
+                                          type="text"
+                                          value={editedNames[index] ?? item.description}
+                                          onChange={(e) => setEditedNames(prev => ({ ...prev, [index]: e.target.value }))}
+                                          className="font-medium bg-transparent border-b border-gray-300 focus:border-primary-500 focus:outline-none px-0 py-0.5 w-full"
+                                        />
                                         {isNonInventoryItem && (
-                                          <span className="text-xs bg-gray-500 text-white px-2 py-1 rounded">Service Charge</span>
+                                          <span className="text-xs bg-gray-500 text-white px-2 py-1 rounded flex-shrink-0">Service Charge</span>
                                         )}
                                       </div>
                                       <p className="text-sm text-gray-600">
