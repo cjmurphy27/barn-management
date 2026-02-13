@@ -81,10 +81,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
     category: '',
     brand: '',
     unit_type: '',
-    current_stock: 0,
-    min_stock_level: 0,
-    reorder_point: 0,
-    last_cost_per_unit: 0,
+    current_stock: '' as any,
+    min_stock_level: '' as any,
+    reorder_point: '' as any,
+    last_cost_per_unit: '' as any,
     storage_location: ''
   })
 
@@ -467,9 +467,17 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
 
       apiClient.setToken(accessToken)
 
+      const payload = {
+        ...newSupply,
+        current_stock: newSupply.current_stock === '' as any ? 0 : Number(newSupply.current_stock),
+        min_stock_level: newSupply.min_stock_level === '' as any ? 0 : Number(newSupply.min_stock_level),
+        reorder_point: newSupply.reorder_point === '' as any ? 0 : Number(newSupply.reorder_point),
+        last_cost_per_unit: newSupply.last_cost_per_unit === '' as any ? 0 : Number(newSupply.last_cost_per_unit),
+      }
+
       const response = editingSupply
-        ? await suppliesApi.update(editingSupply.id.toString(), newSupply, selectedBarnId)
-        : await suppliesApi.create(newSupply, selectedBarnId)
+        ? await suppliesApi.update(editingSupply.id.toString(), payload, selectedBarnId)
+        : await suppliesApi.create(payload, selectedBarnId)
 
       if (response.success) {
         setShowAddSupplyModal(false)
@@ -600,10 +608,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                           category: '',
                           brand: '',
                           unit_type: '',
-                          current_stock: 0,
-                          min_stock_level: 0,
-                          reorder_point: 0,
-                          last_cost_per_unit: 0,
+                          current_stock: '' as any,
+                          min_stock_level: '' as any,
+                          reorder_point: '' as any,
+                          last_cost_per_unit: '' as any,
                           storage_location: ''
                         })
                         setShowAddSupplyModal(true)
@@ -685,10 +693,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                     category: '',
                     brand: '',
                     unit_type: '',
-                    current_stock: 0,
-                    min_stock_level: 0,
-                    reorder_point: 0,
-                    last_cost_per_unit: 0,
+                    current_stock: '' as any,
+                    min_stock_level: '' as any,
+                    reorder_point: '' as any,
+                    last_cost_per_unit: '' as any,
                     storage_location: ''
                   })
                   setShowAddSupplyModal(true)
@@ -733,7 +741,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                               <span className={`font-medium ${getStockStatusColor(supply)}`}>
                                 Stock: {supply.current_stock} {supply.unit_type}
                               </span>
-                              {supply.reorder_point && (
+                              {!!supply.reorder_point && (
                                 <span className="text-gray-500">
                                   Reorder at: {supply.reorder_point}
                                 </span>
@@ -744,7 +752,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                                 📍 {supply.storage_location}
                               </div>
                             )}
-                            {supply.last_cost_per_unit && (
+                            {!!supply.last_cost_per_unit && (
                               <div className="text-sm text-gray-600">
                                 Cost: {formatCurrency(supply.last_cost_per_unit)} per {supply.unit_type}
                               </div>
@@ -764,10 +772,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                                 category: supply.category,
                                 brand: supply.brand || '',
                                 unit_type: supply.unit_type,
-                                current_stock: supply.current_stock,
-                                min_stock_level: supply.min_stock_level || 0,
-                                reorder_point: supply.reorder_point || 0,
-                                last_cost_per_unit: supply.last_cost_per_unit || 0,
+                                current_stock: supply.current_stock || '' as any,
+                                min_stock_level: supply.min_stock_level || '' as any,
+                                reorder_point: supply.reorder_point || '' as any,
+                                last_cost_per_unit: supply.last_cost_per_unit || '' as any,
                                 storage_location: supply.storage_location || ''
                               })
                               setShowAddSupplyModal(true)
@@ -973,8 +981,8 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
       {/* Add/Edit Supply Modal */}
       {showAddSupplyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[85dvh] overflow-y-auto">
+            <div className="p-6 pb-8">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium text-gray-900">
                   {editingSupply ? 'Edit Supply' : 'Add New Supply'}
@@ -1057,10 +1065,10 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                     <input
                       type="number"
                       value={newSupply.current_stock}
-                      onChange={(e) => setNewSupply(prev => ({ ...prev, current_stock: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => setNewSupply(prev => ({ ...prev, current_stock: e.target.value === '' ? '' as any : parseFloat(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       min="0"
-                      step="0.1"
+                      step="1"
                     />
                   </div>
                   <div>
@@ -1070,7 +1078,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                     <input
                       type="number"
                       value={newSupply.min_stock_level}
-                      onChange={(e) => setNewSupply(prev => ({ ...prev, min_stock_level: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => setNewSupply(prev => ({ ...prev, min_stock_level: e.target.value === '' ? '' as any : parseFloat(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       min="0"
                       step="0.1"
@@ -1086,7 +1094,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                     <input
                       type="number"
                       value={newSupply.reorder_point}
-                      onChange={(e) => setNewSupply(prev => ({ ...prev, reorder_point: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => setNewSupply(prev => ({ ...prev, reorder_point: e.target.value === '' ? '' as any : parseFloat(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       min="0"
                       step="0.1"
@@ -1099,7 +1107,7 @@ export default function Supplies({ user, selectedBarnId }: SuppliesProps) {
                     <input
                       type="number"
                       value={newSupply.last_cost_per_unit}
-                      onChange={(e) => setNewSupply(prev => ({ ...prev, last_cost_per_unit: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => setNewSupply(prev => ({ ...prev, last_cost_per_unit: e.target.value === '' ? '' as any : parseFloat(e.target.value) }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       min="0"
                       step="0.01"
