@@ -141,7 +141,8 @@ export default function HorseAI({ user, selectedBarnId }: HorseAIProps) {
       const requestBody: any = {
         messages: allMessages,
         include_barn_context: true,
-        horse_id: parseInt(horse.id)
+        horse_id: parseInt(horse.id),
+        organization_id: selectedBarnId
       }
 
       const apiResponse = await apiClient.post('/api/v1/ai/chat', requestBody)

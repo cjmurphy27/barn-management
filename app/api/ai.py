@@ -17,16 +17,19 @@ router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 # Pydantic models for requests
 class HorseAnalysisRequest(BaseModel):
     horse_id: int
+    organization_id: Optional[str] = None
     question: Optional[str] = None
     image: Optional[str] = None  # Base64 encoded image
     image_type: Optional[str] = None  # MIME type
 
 class GeneralQuestionRequest(BaseModel):
     question: str
+    organization_id: Optional[str] = None
     include_barn_context: bool = True
 
 class CompareHorsesRequest(BaseModel):
     horse_ids: List[int]
+    organization_id: Optional[str] = None
     comparison_question: Optional[str] = None
 
 class ChatMessage(BaseModel):
@@ -37,6 +40,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     horse_id: Optional[int] = None
+    organization_id: Optional[str] = None
     include_barn_context: bool = True
 
 class AIResponse(BaseModel):
@@ -55,8 +59,11 @@ async def analyze_horse(
     """
     try:
         # Get horse data
-        horse = db.query(Horse).filter(Horse.id == request.horse_id).first()
-        
+        horse_query = db.query(Horse).filter(Horse.id == request.horse_id)
+        if request.organization_id:
+            horse_query = horse_query.filter(Horse.organization_id == request.organization_id)
+        horse = horse_query.first()
+
         if not horse:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -101,11 +108,14 @@ async def ask_general_question(
     try:
         barn_context = None
         
-        if request.include_barn_context:
-            # Get all active horses for context
-            horses = db.query(Horse).filter(Horse.is_active == True).limit(10).all()
+        if request.include_barn_context and request.organization_id:
+            # Get active horses for the selected organization
+            horses = db.query(Horse).filter(
+                Horse.is_active == True,
+                Horse.organization_id == request.organization_id
+            ).limit(10).all()
             barn_context = [horse.to_dict() for horse in horses]
-        
+
         # Get AI response
         ai_response = ai_service.general_horse_question(request.question, barn_context)
         
@@ -136,8 +146,11 @@ async def compare_horses(
             )
         
         # Get horse data
-        horses = db.query(Horse).filter(Horse.id.in_(request.horse_ids)).all()
-        
+        horse_query = db.query(Horse).filter(Horse.id.in_(request.horse_ids))
+        if request.organization_id:
+            horse_query = horse_query.filter(Horse.organization_id == request.organization_id)
+        horses = horse_query.all()
+
         if len(horses) != len(request.horse_ids):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -267,7 +280,10 @@ async def ai_chat(
 
         # If horse_id is provided, get horse context
         if request.horse_id:
-            horse = db.query(Horse).filter(Horse.id == request.horse_id).first()
+            horse_query = db.query(Horse).filter(Horse.id == request.horse_id)
+            if request.organization_id:
+                horse_query = horse_query.filter(Horse.organization_id == request.organization_id)
+            horse = horse_query.first()
 
             if not horse:
                 raise HTTPException(
@@ -289,9 +305,12 @@ async def ai_chat(
         else:
             # General question handling
             barn_context = None
-            if request.include_barn_context:
-                # Get barn context for general questions
-                horses = db.query(Horse).filter(Horse.is_active == True).limit(10).all()
+            if request.include_barn_context and request.organization_id:
+                # Get barn context for the selected organization only
+                horses = db.query(Horse).filter(
+                    Horse.is_active == True,
+                    Horse.organization_id == request.organization_id
+                ).limit(10).all()
                 barn_context = [h.to_dict() for h in horses]
 
             # For general questions with images, we need to use a different approach

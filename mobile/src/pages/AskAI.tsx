@@ -80,7 +80,8 @@ export default function AskAI({ user, selectedBarnId }: AskAIProps) {
 
       const requestBody: any = {
         messages: allMessages,
-        include_barn_context: true
+        include_barn_context: true,
+        organization_id: selectedBarnId
       }
 
       const apiResponse = await apiClient.post('/api/v1/ai/chat', requestBody)
