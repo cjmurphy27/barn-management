@@ -51,49 +51,103 @@ export default function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <div className="inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-8 py-6 md:px-10 md:py-8 mb-4">
-            <div className="flex flex-col">
-              <span className="text-white font-black text-3xl md:text-4xl leading-tight tracking-tight">STABLE</span>
-              <span className="text-blue-100 font-bold text-2xl leading-tight tracking-wide">GENIUS</span>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+        <div className="inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-8 py-6 md:px-10 md:py-8 mb-4">
+          <div className="flex flex-col">
+            <span className="text-white font-black text-3xl md:text-4xl leading-tight tracking-tight">STABLE</span>
+            <span className="text-blue-100 font-bold text-2xl leading-tight tracking-wide">GENIUS</span>
           </div>
-          <p className="text-gray-600">
-            Smart Barn Management
-          </p>
         </div>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-4">
+          Smart Barn Management
+        </h1>
+        <p className="text-gray-600 mt-3 max-w-md text-lg">
+          AI-powered tools to manage your horses, track health records, scan receipts, and keep your barn running smoothly.
+        </p>
+        <button
+          onClick={handleLogin}
+          className="btn-primary mt-8 px-10"
+        >
+          Log In
+        </button>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-6">
-        <div className="bg-white py-8 px-6 shadow rounded-lg sm:px-10">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Sign in to your account
-            </h2>
-
-            <button
-              onClick={handleLogin}
+      {/* Pricing Section */}
+      <div className="px-6 pb-16 max-w-3xl mx-auto">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900 text-center mb-8">
+          Simple Pricing
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Basic Plan */}
+          <div className="card flex flex-col">
+            <h3 className="text-lg font-bold text-gray-900">Basic</h3>
+            <div className="mt-2 mb-4">
+              <span className="text-3xl font-bold text-gray-900">$40</span>
+              <span className="text-gray-600">/month</span>
+            </div>
+            <ul className="text-gray-600 space-y-2 mb-6 flex-1">
+              <li>AI Receipt Scanner</li>
+              <li>Horse Health Tracking</li>
+              <li>Inventory Management</li>
+              <li>AI Assistant</li>
+              <li>Calendar & Scheduling</li>
+              <li>Message Board</li>
+              <li>Up to 20 horses</li>
+              <li>Up to 5 users (+$10/each additional)</li>
+            </ul>
+            <a
+              href="mailto:support@stablegenius.us"
               className="btn-primary w-full"
             >
-              Sign In with PropelAuth
-            </button>
+              Get Started
+            </a>
+          </div>
 
-            {/* Development mode bypass */}
-            <button
-              onClick={handleDevModeLogin}
-              className="mt-4 w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+          {/* Enterprise Plan */}
+          <div className="card flex flex-col">
+            <h3 className="text-lg font-bold text-gray-900">Enterprise</h3>
+            <div className="mt-2 mb-4">
+              <span className="text-3xl font-bold text-gray-900">Contact Us</span>
+            </div>
+            <ul className="text-gray-600 space-y-2 mb-6 flex-1">
+              <li>Everything in Basic</li>
+              <li>Unlimited horses</li>
+              <li>Priority support</li>
+              <li>Custom integrations</li>
+              <li>Multi-barn management</li>
+              <li>Dedicated account manager</li>
+            </ul>
+            <a
+              href="mailto:support@stablegenius.us"
+              className="btn-primary w-full"
             >
-              🚧 Development Mode (Skip Auth)
-            </button>
-
-            <p className="mt-6 text-sm text-gray-500">
-              Secure authentication powered by PropelAuth
-            </p>
+              Contact Us
+            </a>
           </div>
         </div>
       </div>
+
+      {/* Tagline */}
+      <div className="px-6 pb-16 text-center">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+          The only thing better than a great Barn Manager is a Stable Genius!
+        </h2>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 py-6 px-6 text-center text-sm text-gray-500">
+        <p>&copy; {new Date().getFullYear()} Stable Genius. All rights reserved.</p>
+        <p className="mt-1">Powered by PropelAuth</p>
+        {/* Development mode bypass */}
+        <button
+          onClick={handleDevModeLogin}
+          className="mt-4 px-4 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-400 bg-white hover:bg-gray-50 transition-colors"
+        >
+          Dev Mode
+        </button>
+      </footer>
     </div>
   )
 }
