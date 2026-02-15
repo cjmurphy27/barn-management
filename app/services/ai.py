@@ -29,7 +29,7 @@ class BarnLadyAI:
         else:
             logger.warning("ANTHROPIC_API_KEY not found in environment variables")
     
-    def analyze_horse(self, horse_data: Dict[str, Any], question: str = None, image_data: str = None, image_type: str = None, db: Session = None) -> str:
+    def analyze_horse(self, horse_data: Dict[str, Any], question: str = None, image_data: str = None, image_type: str = None, db: Session = None, conversation_history: List[Dict[str, str]] = None) -> str:
         """Analyze a specific horse and provide insights, optionally with image analysis"""
         
         if not self.api_key_available or not self.client:
@@ -77,65 +77,48 @@ class BarnLadyAI:
                 else:
                     logger.warning(f"Failed to prepare {doc.original_filename} for vision analysis")
 
-        # Build message content
+        # Build system prompt with horse context
+        additional_context = ""
+        if visual_documents:
+            additional_context = " Documents and images with additional information (including handwritten details) may be provided."
+
+        system_prompt = f"""You are a knowledgeable equine specialist and barn manager. You are helping a user manage their horse. Be specific and actionable in your recommendations.{additional_context}
+
+Here is the horse's information:
+
+{horse_profile}"""
+
+        # Build the user message content for the current turn
         message_content = []
-        
+
         if question:
             if image_data or visual_documents:
-                additional_context = ""
-                if visual_documents:
-                    additional_context = f" I've also provided documents and images that may contain additional information including handwritten details."
-
-                prompt = f"""You are a knowledgeable equine specialist and barn manager. A user is asking about their horse.{additional_context} Here's the horse's information:
-
-{horse_profile}
-
-User Question: {question}
+                user_text = f"""{question}
 
 Please analyze all provided information (including any documents or images) in context of this question. Pay special attention to:
 - Any handwritten information in documents (like age, notes, measurements)
 - Details that may not be in printed text but are visible in the documents
-- Cross-reference information between different sources
-
-Provide helpful, practical advice based on all available information. Be specific and actionable in your recommendations."""
+- Cross-reference information between different sources"""
             else:
-                prompt = f"""You are a knowledgeable equine specialist and barn manager. A user is asking about their horse. Here's the horse's information:
-
-{horse_profile}
-
-User Question: {question}
-
-Please provide helpful, practical advice based on this horse's specific details. Be specific and actionable in your recommendations."""
+                user_text = question
         else:
             if image_data:
-                prompt = f"""You are a knowledgeable equine specialist and barn manager. Please analyze this horse's information and the provided photo:
-
-{horse_profile}
-
-Please provide:
+                user_text = """Please analyze this horse's information and the provided photo. Provide:
 1. Health assessment based on the available information and visual observations
-2. Care recommendations 
+2. Care recommendations
 3. Any concerns or things to monitor based on the image
-4. Suggestions for improvement
-
-Be specific and practical in your advice, incorporating both the data and visual observations."""
+4. Suggestions for improvement"""
             else:
-                prompt = f"""You are a knowledgeable equine specialist and barn manager. Please analyze this horse's information and provide insights about their care, health, and management:
-
-{horse_profile}
-
-Please provide:
+                user_text = """Please analyze this horse's information and provide insights about their care, health, and management. Provide:
 1. Health assessment based on the available information
-2. Care recommendations 
+2. Care recommendations
 3. Any concerns or things to monitor
-4. Suggestions for improvement
-
-Be specific and practical in your advice."""
+4. Suggestions for improvement"""
 
         # Add text content
         message_content.append({
             "type": "text",
-            "text": prompt
+            "text": user_text
         })
 
         # Add image if provided
@@ -180,55 +163,106 @@ Be specific and practical in your advice."""
             })
 
         try:
+            # Build messages array with conversation history
+            messages = []
+            if conversation_history:
+                messages.extend(conversation_history)
+            messages.append({
+                "role": "user",
+                "content": message_content
+            })
+
             response = self.client.messages.create(
                 model="claude-sonnet-4-5",
                 max_tokens=1200,
                 temperature=0.3,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": message_content
-                    }
-                ]
+                system=system_prompt,
+                messages=messages
             )
-            
+
             return response.content[0].text
-            
+
         except Exception as e:
             logger.error(f"Error calling Claude API: {str(e)}")
             return f"Sorry, I encountered an error while analyzing the horse information: {str(e)}"
-    
-    def general_horse_question(self, question: str, barn_context: List[Dict[str, Any]] = None) -> str:
-        """Answer general horse management questions with barn context"""
-        
+
+    def general_horse_question(self, question: str, barn_context: List[Dict[str, Any]] = None, conversation_history: List[Dict[str, str]] = None, supply_context: List[Dict[str, Any]] = None) -> str:
+        """Answer general horse management questions with barn and inventory context"""
+
         context = ""
         if barn_context:
-            context = "\n\nFor context, here are the horses currently in the barn:\n"
-            for horse in barn_context[:5]:  # Limit to first 5 horses for context
-                context += f"- {horse.get('name')} ({horse.get('breed', 'Unknown breed')}, {horse.get('age_display', 'Unknown age')}, {horse.get('current_health_status', 'Unknown health')})\n"
-        
-        prompt = f"""You are a knowledgeable equine specialist and barn manager. Please answer this question about horse management:
+            context += "\n\n--- HORSES IN THE BARN ---\n"
+            for horse in barn_context:
+                entry = f"- {horse.get('name', 'Unknown')}"
+                details = []
+                if horse.get('breed'):
+                    details.append(horse['breed'])
+                if horse.get('age_display'):
+                    details.append(horse['age_display'])
+                if horse.get('gender'):
+                    details.append(horse['gender'])
+                if horse.get('current_health_status'):
+                    details.append(f"Health: {horse['current_health_status']}")
+                if horse.get('allergies'):
+                    details.append(f"Allergies: {horse['allergies']}")
+                if horse.get('medications'):
+                    details.append(f"Medications: {horse['medications']}")
+                if horse.get('special_needs'):
+                    details.append(f"Special needs: {horse['special_needs']}")
+                if horse.get('stall_number'):
+                    details.append(f"Stall: {horse['stall_number']}")
+                if horse.get('feeding_schedule'):
+                    details.append(f"Feeding: {horse['feeding_schedule']}")
+                if horse.get('notes'):
+                    details.append(f"Notes: {horse['notes']}")
+                if details:
+                    entry += f" ({', '.join(details)})"
+                context += entry + "\n"
 
-Question: {question}
-{context}
+        if supply_context:
+            context += "\n--- INVENTORY / SUPPLIES ---\n"
+            for supply in supply_context:
+                entry = f"- {supply.get('name', 'Unknown')}"
+                details = []
+                if supply.get('category'):
+                    details.append(supply['category'].replace('_', ' '))
+                if supply.get('brand'):
+                    details.append(supply['brand'])
+                stock = supply.get('current_stock', 0)
+                unit = supply.get('unit_type', '')
+                details.append(f"Stock: {stock} {unit}")
+                if supply.get('is_low_stock'):
+                    details.append("LOW STOCK")
+                if supply.get('estimated_days_remaining') is not None:
+                    details.append(f"~{supply['estimated_days_remaining']} days remaining")
+                if supply.get('last_cost_per_unit'):
+                    details.append(f"${supply['last_cost_per_unit']:.2f}/unit")
+                if details:
+                    entry += f" ({', '.join(details)})"
+                context += entry + "\n"
 
-Provide practical, actionable advice based on current best practices in horse care and management."""
+        system_prompt = f"""You are a knowledgeable equine specialist and barn manager. You have access to the full barn roster and inventory. Provide practical, actionable advice based on current best practices in horse care and management.{context}"""
 
         try:
+            # Build messages array with conversation history
+            messages = []
+            if conversation_history:
+                messages.extend(conversation_history)
+            messages.append({
+                "role": "user",
+                "content": question
+            })
+
             response = self.client.messages.create(
                 model="claude-sonnet-4-5",
                 max_tokens=1000,
                 temperature=0.3,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+                system=system_prompt,
+                messages=messages
             )
-            
+
             return response.content[0].text
-            
+
         except Exception as e:
             logger.error(f"Error calling Claude API: {str(e)}")
             return f"Sorry, I encountered an error while processing your question: {str(e)}"

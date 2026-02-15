@@ -6,6 +6,7 @@ import logging
 
 from app.database import get_db
 from app.models.horse import Horse
+from app.models.supply import Supply
 from app.services.ai import ai_service
 
 # Set up logging
@@ -275,6 +276,15 @@ async def ai_chat(
                 image_type = "image/jpeg"
                 logger.info(f"Using raw base64 image data: size={len(image_data)} chars")
 
+        # Build conversation history (prior messages, text only)
+        conversation_history = []
+        for msg in request.messages:
+            if msg is not latest_message:
+                conversation_history.append({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+
         horse_context = None
         horses_analyzed = []
 
@@ -300,18 +310,28 @@ async def ai_chat(
                 latest_message.content,
                 image_data,
                 image_type,
-                db
+                db,
+                conversation_history
             )
         else:
             # General question handling
             barn_context = None
+            supply_context = None
             if request.include_barn_context and request.organization_id:
-                # Get barn context for the selected organization only
+                # Get all active horses for the selected organization
                 horses = db.query(Horse).filter(
                     Horse.is_active == True,
                     Horse.organization_id == request.organization_id
-                ).limit(10).all()
+                ).all()
                 barn_context = [h.to_dict() for h in horses]
+
+                # Get all active supplies for the selected organization
+                supplies = db.query(Supply).filter(
+                    Supply.is_active == True,
+                    Supply.organization_id == request.organization_id
+                ).all()
+                if supplies:
+                    supply_context = [s.to_dict() for s in supplies]
 
             # For general questions with images, we need to use a different approach
             # since general_horse_question doesn't handle images
@@ -322,12 +342,15 @@ async def ai_chat(
                     latest_message.content,
                     image_data,
                     image_type,
-                    db
+                    db,
+                    conversation_history
                 )
             else:
                 ai_response = ai_service.general_horse_question(
                     latest_message.content,
-                    barn_context
+                    barn_context,
+                    conversation_history,
+                    supply_context
                 )
 
         logger.info(f"Generated AI chat response for {'horse-specific' if request.horse_id else 'general'} question")

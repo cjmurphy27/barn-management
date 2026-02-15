@@ -51,7 +51,7 @@ export default function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
         <div className="inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl px-8 py-6 md:px-10 md:py-8 mb-4">
@@ -60,7 +60,7 @@ export default function Login({ onLogin }: LoginProps) {
             <span className="text-blue-100 font-bold text-2xl leading-tight tracking-wide">GENIUS</span>
           </div>
         </div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-4">
+        <h1 className="text-3xl md:text-4xl font-black text-gray-900 mt-4">
           Smart Barn Management
         </h1>
         <p className="text-gray-600 mt-3 max-w-md text-lg">
@@ -76,7 +76,7 @@ export default function Login({ onLogin }: LoginProps) {
 
       {/* Pricing Section */}
       <div className="px-6 pb-16 max-w-3xl mx-auto">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900 text-center mb-8">
+        <h2 className="text-2xl md:text-3xl font-black text-gray-900 text-center mb-8">
           Simple Pricing
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -131,7 +131,7 @@ export default function Login({ onLogin }: LoginProps) {
 
       {/* Tagline */}
       <div className="px-6 pb-16 text-center">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+        <h2 className="text-3xl md:text-4xl font-black text-gray-900">
           The only thing better than a great Barn Manager is a Stable Genius!
         </h2>
       </div>
