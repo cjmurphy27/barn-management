@@ -16,7 +16,7 @@ export default function Login({ onLogin }: LoginProps) {
       : 'http://localhost:3001' // Local development
 
     const params = new URLSearchParams({
-      'client_id': '4a68fdae569be0db02111668f191c188', // Same as desktop version
+      'client_id': '7808486258d0ff494a29d2dfe48b6da3', // Same as desktop version
       'redirect_uri': redirectUri,
       'response_type': 'code',
       'scope': 'openid email profile',
