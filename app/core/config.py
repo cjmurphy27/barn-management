@@ -36,7 +36,9 @@ class Settings(BaseSettings):
         "http://localhost:8000",
         "http://localhost:8002",
         "https://web-production-9e440.up.railway.app",
-        "https://backend-production-67ec.up.railway.app"
+        "https://backend-production-67ec.up.railway.app",
+        "https://stablegenius.us",
+        "https://www.stablegenius.us"
     ], description="CORS allowed origins")
     
     # Authentication Settings (PropelAuth integration)
