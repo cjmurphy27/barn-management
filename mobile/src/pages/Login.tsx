@@ -98,10 +98,12 @@ export default function Login({ onLogin }: LoginProps) {
               <li>Up to 5 users (+$10/each additional)</li>
             </ul>
             <a
-              href="mailto:support@stablegenius.us"
+              href="https://calendly.com/chris-carril/30min"
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-primary w-full"
             >
-              Get Started
+              Book a Demo
             </a>
           </div>
 
@@ -120,10 +122,12 @@ export default function Login({ onLogin }: LoginProps) {
               <li>Dedicated account manager</li>
             </ul>
             <a
-              href="mailto:support@stablegenius.us"
+              href="https://calendly.com/chris-carril/30min"
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-primary w-full"
             >
-              Contact Us
+              Book a Demo
             </a>
           </div>
         </div>
