@@ -56,6 +56,11 @@ interface Horse {
   last_vet_visit?: string
   last_dental?: string
   last_farrier?: string
+  last_deworming?: string
+  vet_visit_notes?: string
+  dental_notes?: string
+  farrier_notes?: string
+  deworming_notes?: string
 
   // Additional Fields
   markings?: string
@@ -1452,7 +1457,7 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
 
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium text-gray-900">Recent Care</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Last Vet Visit
@@ -1462,6 +1467,16 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                           value={editFormData.last_vet_visit ? new Date(editFormData.last_vet_visit).toISOString().split('T')[0] : ''}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, last_vet_visit: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                        <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                          Visit Notes
+                        </label>
+                        <textarea
+                          value={editFormData.vet_visit_notes || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, vet_visit_notes: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Notes about the vet visit..."
                         />
                       </div>
                       <div>
@@ -1474,6 +1489,16 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                           onChange={(e) => setEditFormData(prev => ({ ...prev, last_dental: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                         />
+                        <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                          Dental Notes
+                        </label>
+                        <textarea
+                          value={editFormData.dental_notes || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, dental_notes: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Notes about the dental visit..."
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1484,6 +1509,37 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                           value={editFormData.last_farrier ? new Date(editFormData.last_farrier).toISOString().split('T')[0] : ''}
                           onChange={(e) => setEditFormData(prev => ({ ...prev, last_farrier: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                        <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                          Farrier Notes
+                        </label>
+                        <textarea
+                          value={editFormData.farrier_notes || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, farrier_notes: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Notes about the farrier visit..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Deworming
+                        </label>
+                        <input
+                          type="date"
+                          value={editFormData.last_deworming ? new Date(editFormData.last_deworming).toISOString().split('T')[0] : ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, last_deworming: e.target.value ? new Date(e.target.value).toISOString() : undefined }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                        <label className="block text-sm font-medium text-gray-700 mt-2 mb-1">
+                          Deworming Notes
+                        </label>
+                        <textarea
+                          value={editFormData.deworming_notes || ''}
+                          onChange={(e) => setEditFormData(prev => ({ ...prev, deworming_notes: e.target.value }))}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="Notes about the deworming treatment..."
                         />
                       </div>
                     </div>
@@ -1546,23 +1602,33 @@ export default function HorseProfile({ user, selectedBarnId }: HorseProfileProps
                   </div>
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium text-gray-900">Recent Care</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {horse.last_vet_visit && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(horse.last_vet_visit || horse.vet_visit_notes) && (
                         <div>
                           <dt className="text-sm font-medium text-gray-500">Last Vet Visit</dt>
-                          <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_vet_visit).toLocaleDateString()}</dd>
+                          {horse.last_vet_visit && <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_vet_visit).toLocaleDateString()}</dd>}
+                          {horse.vet_visit_notes && <dd className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{horse.vet_visit_notes}</dd>}
                         </div>
                       )}
-                      {horse.last_dental && (
+                      {(horse.last_dental || horse.dental_notes) && (
                         <div>
                           <dt className="text-sm font-medium text-gray-500">Last Dental</dt>
-                          <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_dental).toLocaleDateString()}</dd>
+                          {horse.last_dental && <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_dental).toLocaleDateString()}</dd>}
+                          {horse.dental_notes && <dd className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{horse.dental_notes}</dd>}
                         </div>
                       )}
-                      {horse.last_farrier && (
+                      {(horse.last_farrier || horse.farrier_notes) && (
                         <div>
                           <dt className="text-sm font-medium text-gray-500">Last Farrier</dt>
-                          <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_farrier).toLocaleDateString()}</dd>
+                          {horse.last_farrier && <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_farrier).toLocaleDateString()}</dd>}
+                          {horse.farrier_notes && <dd className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{horse.farrier_notes}</dd>}
+                        </div>
+                      )}
+                      {(horse.last_deworming || horse.deworming_notes) && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Last Deworming</dt>
+                          {horse.last_deworming && <dd className="mt-1 text-sm text-gray-900">{new Date(horse.last_deworming).toLocaleDateString()}</dd>}
+                          {horse.deworming_notes && <dd className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{horse.deworming_notes}</dd>}
                         </div>
                       )}
                     </div>

@@ -79,7 +79,14 @@ class Horse(Base):
     last_vet_visit = Column(Date, nullable=True)
     last_dental = Column(Date, nullable=True)
     last_farrier = Column(Date, nullable=True)
-    
+    last_deworming = Column(Date, nullable=True)
+
+    # Care Visit Notes
+    vet_visit_notes = Column(Text, nullable=True)
+    dental_notes = Column(Text, nullable=True)
+    farrier_notes = Column(Text, nullable=True)
+    deworming_notes = Column(Text, nullable=True)
+
     # Additional Notes
     notes = Column(Text, nullable=True)
     special_instructions = Column(Text, nullable=True)
@@ -175,6 +182,11 @@ class Horse(Base):
             "last_vet_visit": self.last_vet_visit.isoformat() if self.last_vet_visit else None,
             "last_dental": self.last_dental.isoformat() if self.last_dental else None,
             "last_farrier": self.last_farrier.isoformat() if self.last_farrier else None,
+            "last_deworming": self.last_deworming.isoformat() if self.last_deworming else None,
+            "vet_visit_notes": self.vet_visit_notes,
+            "dental_notes": self.dental_notes,
+            "farrier_notes": self.farrier_notes,
+            "deworming_notes": self.deworming_notes,
             "notes": self.notes,
             "profile_photo_path": self.profile_photo_path,
             "is_active": self.is_active,

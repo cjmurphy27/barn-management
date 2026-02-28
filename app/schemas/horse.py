@@ -91,7 +91,15 @@ class HorseBase(BaseModel):
     emergency_contact_phone: Optional[str] = Field(None, max_length=20, description="Emergency phone number")
     veterinarian_name: Optional[str] = Field(None, max_length=100, description="Primary veterinarian")
     veterinarian_contact: Optional[str] = Field(None, max_length=200, description="Vet contact information")
-    
+    last_vet_visit: Optional[date] = None
+    last_dental: Optional[date] = None
+    last_farrier: Optional[date] = None
+    last_deworming: Optional[date] = None
+    vet_visit_notes: Optional[str] = None
+    dental_notes: Optional[str] = None
+    farrier_notes: Optional[str] = None
+    deworming_notes: Optional[str] = None
+
     # Additional information
     notes: Optional[str] = Field(None, description="General notes")
     special_instructions: Optional[str] = Field(None, description="Special care instructions")
@@ -160,6 +168,14 @@ class HorseUpdate(BaseModel):
     emergency_contact_phone: Optional[str] = Field(None, max_length=20)
     veterinarian_name: Optional[str] = Field(None, max_length=100)
     veterinarian_contact: Optional[str] = Field(None, max_length=200)
+    last_vet_visit: Optional[date] = None
+    last_dental: Optional[date] = None
+    last_farrier: Optional[date] = None
+    last_deworming: Optional[date] = None
+    vet_visit_notes: Optional[str] = None
+    dental_notes: Optional[str] = None
+    farrier_notes: Optional[str] = None
+    deworming_notes: Optional[str] = None
     notes: Optional[str] = None
     special_instructions: Optional[str] = None
     is_active: Optional[bool] = None
@@ -219,6 +235,15 @@ class HorseResponse(HorseListResponse):
     emergency_contact_phone: Optional[str]
     veterinarian_name: Optional[str]
     veterinarian_contact: Optional[str]
+    farrier_name: Optional[str]
+    last_vet_visit: Optional[date]
+    last_dental: Optional[date]
+    last_farrier: Optional[date]
+    last_deworming: Optional[date]
+    vet_visit_notes: Optional[str]
+    dental_notes: Optional[str]
+    farrier_notes: Optional[str]
+    deworming_notes: Optional[str]
     notes: Optional[str]
     special_instructions: Optional[str]
     organization_id: Optional[str]

@@ -213,6 +213,12 @@ Please analyze all provided information (including any documents or images) in c
                     details.append(f"Stall: {horse['stall_number']}")
                 if horse.get('feeding_schedule'):
                     details.append(f"Feeding: {horse['feeding_schedule']}")
+                if horse.get('last_vet_visit'):
+                    details.append(f"Last vet: {horse['last_vet_visit']}")
+                if horse.get('last_farrier'):
+                    details.append(f"Last farrier: {horse['last_farrier']}")
+                if horse.get('last_deworming'):
+                    details.append(f"Last deworming: {horse['last_deworming']}")
                 if horse.get('notes'):
                     details.append(f"Notes: {horse['notes']}")
                 if details:
@@ -364,6 +370,24 @@ Please provide:
             info += f"Training Level: {horse_data['training_level']}\n"
         if horse_data.get('disciplines'):
             info += f"Disciplines: {horse_data['disciplines']}\n"
+
+        # Recent care history
+        care_fields = [
+            ('last_vet_visit', 'vet_visit_notes', 'Last Vet Visit'),
+            ('last_dental', 'dental_notes', 'Last Dental'),
+            ('last_farrier', 'farrier_notes', 'Last Farrier'),
+            ('last_deworming', 'deworming_notes', 'Last Deworming'),
+        ]
+        care_lines = []
+        for date_key, notes_key, label in care_fields:
+            if horse_data.get(date_key) or horse_data.get(notes_key):
+                line = f"{label}: {horse_data[date_key]}" if horse_data.get(date_key) else f"{label}: (date not recorded)"
+                if horse_data.get(notes_key):
+                    line += f" — {horse_data[notes_key]}"
+                care_lines.append(line)
+        if care_lines:
+            info += "\n--- RECENT CARE HISTORY ---\n"
+            info += "\n".join(care_lines) + "\n"
 
         # Additional info
         if horse_data.get('notes'):

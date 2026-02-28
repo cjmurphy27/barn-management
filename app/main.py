@@ -267,6 +267,39 @@ async def migrate_photos_endpoint(current_user: dict = Depends(get_current_user)
             "message": str(e)
         }
 
+# TEMPORARY: Migration endpoint for care notes columns
+@app.post("/api/v1/admin/migrate-care-notes")
+async def migrate_care_notes_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    TEMPORARY endpoint to add care notes and deworming columns to horses table.
+    Remove this after migration is complete.
+    """
+    from sqlalchemy import text
+
+    columns = [
+        ("last_deworming", "DATE"),
+        ("vet_visit_notes", "TEXT"),
+        ("dental_notes", "TEXT"),
+        ("farrier_notes", "TEXT"),
+        ("deworming_notes", "TEXT"),
+    ]
+
+    try:
+        with db_manager.get_session() as session:
+            results = []
+            for col_name, col_type in columns:
+                sql = f"ALTER TABLE horses ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+                session.execute(text(sql))
+                results.append(f"Added column: {col_name} {col_type}")
+            session.commit()
+
+        return {"status": "success", "columns_added": results}
+
+    except Exception as e:
+        logger.error(f"Care notes migration failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "database": "connected", "version": "2.0.0"}
