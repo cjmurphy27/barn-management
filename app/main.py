@@ -269,7 +269,7 @@ async def migrate_photos_endpoint(current_user: dict = Depends(get_current_user)
 
 # TEMPORARY: Migration endpoint for care notes columns
 @app.post("/api/v1/admin/migrate-care-notes")
-async def migrate_care_notes_endpoint(current_user: dict = Depends(get_current_user)):
+async def migrate_care_notes_endpoint():
     """
     TEMPORARY endpoint to add care notes and deworming columns to horses table.
     Remove this after migration is complete.
