@@ -15,12 +15,16 @@ export default function Login({ onLogin }: LoginProps) {
       ? window.location.origin  // Use current Railway URL
       : 'http://localhost:3001' // Local development
 
+    const explicitLogout = localStorage.getItem('explicit_logout')
+    localStorage.removeItem('explicit_logout')
+
     const params = new URLSearchParams({
       'client_id': '7808486258d0ff494a29d2dfe48b6da3', // Same as desktop version
       'redirect_uri': redirectUri,
       'response_type': 'code',
       'scope': 'openid email profile',
-      'state': mobileState // Mobile flag encoded in state
+      'state': mobileState, // Mobile flag encoded in state
+      ...(explicitLogout ? { 'prompt': 'login' } : {})
     })
 
     // Debug environment variables

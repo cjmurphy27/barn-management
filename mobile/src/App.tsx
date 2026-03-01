@@ -269,6 +269,7 @@ function App() {
     localStorage.removeItem('access_token')
     localStorage.removeItem('user_data')
     setUser(null)
+    localStorage.setItem('explicit_logout', 'true')
   }
 
   if (loading) {
