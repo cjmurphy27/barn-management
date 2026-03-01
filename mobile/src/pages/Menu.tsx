@@ -95,7 +95,10 @@ export default function Menu({ user, onLogout }: MenuProps) {
           ⚙️ Account
         </h2>
         <div className="space-y-3">
-          <button className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors w-full text-left">
+          <button
+            onClick={() => window.open(`${import.meta.env.VITE_AUTH_URL}/account`, '_blank')}
+            className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors w-full text-left"
+          >
             <div className="flex items-center">
               <span className="text-2xl mr-3">👤</span>
               <span className="font-medium">Profile Settings</span>
