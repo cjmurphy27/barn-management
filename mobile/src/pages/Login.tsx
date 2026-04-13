@@ -87,10 +87,11 @@ export default function Login({ onLogin }: LoginProps) {
           {/* Basic Plan */}
           <div className="card flex flex-col">
             <h3 className="text-lg font-bold text-gray-900">Basic</h3>
-            <div className="mt-2 mb-4">
+            <div className="mt-2 mb-1">
               <span className="text-3xl font-bold text-gray-900">$40</span>
               <span className="text-gray-600">/month</span>
             </div>
+            <p className="text-sm font-bold mb-4 text-white bg-blue-500 rounded-full px-3 py-1 inline-block">🎉 Special Introductory Offer</p>
             <ul className="text-gray-600 space-y-2 mb-6 flex-1">
               <li>AI Receipt Scanner</li>
               <li>Horse Health Tracking</li>
@@ -139,7 +140,7 @@ export default function Login({ onLogin }: LoginProps) {
 
       {/* Tagline */}
       <div className="px-6 pb-16 text-center">
-        <h2 className="text-3xl md:text-4xl font-black text-gray-900">
+        <h2 className="text-2xl md:text-3xl font-medium italic text-gray-900">
           The only thing better than a great Barn Manager is a Stable Genius!
         </h2>
       </div>
@@ -148,13 +149,6 @@ export default function Login({ onLogin }: LoginProps) {
       <footer className="border-t border-gray-200 py-6 px-6 text-center text-sm text-gray-500">
         <p>&copy; {new Date().getFullYear()} Stable Genius. All rights reserved.</p>
         <p className="mt-1">Powered by PropelAuth</p>
-        {/* Development mode bypass */}
-        <button
-          onClick={handleDevModeLogin}
-          className="mt-4 px-4 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-400 bg-white hover:bg-gray-50 transition-colors"
-        >
-          Dev Mode
-        </button>
       </footer>
     </div>
   )
