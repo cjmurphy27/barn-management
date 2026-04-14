@@ -42,20 +42,20 @@ export default function Layout({ children, user, onLogout, selectedBarnId, onBar
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-sm safe-area-top">
+      <header className="shadow-sm safe-area-top" style={{ background: '#111' }}>
         <div className="px-4 py-4 md:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="flex items-center bg-white bg-opacity-20 rounded-lg px-4 py-3">
+              <div className="flex items-center rounded-lg px-4 py-3">
                 <div className="flex flex-col">
                   <span className="text-white font-black text-xl leading-tight tracking-tight">STABLE</span>
-                  <span className="text-blue-100 font-bold text-lg leading-tight tracking-wide">GENIUS</span>
+                  <span className="font-bold text-lg leading-tight tracking-wide" style={{ color: '#D97706' }}>GENIUS</span>
                 </div>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="text-sm text-blue-100 hover:text-white font-medium bg-white bg-opacity-20 px-3 py-2 rounded-lg transition-colors"
+              className="text-sm font-medium px-3 py-2 rounded-lg transition-colors" style={{ color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}
             >
               Sign Out
             </button>
